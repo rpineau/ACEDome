@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>X2Dome</class>
+ <widget class="QDialog" name="X2Dome">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>341</width>
+    <height>519</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>0</width>
+    <height>0</height>
+   </size>
+  </property>
+  <property name="maximumSize">
+   <size>
+    <width>9999</width>
+    <height>9999</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>ACE SmartDome</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_5">
+   <item>
+    <widget class="X2Form" name="X2Form">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>1024</width>
+       <height>768</height>
+      </size>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+     </property>
+     <property name="SerialPortName" stdset="0">
+      <string/>
+     </property>
+     <widget class="QGroupBox" name="Params">
+      <property name="geometry">
+       <rect>
+        <x>13</x>
+        <y>141</y>
+        <width>288</width>
+        <height>304</height>
+       </rect>
+      </property>
+      <property name="title">
+       <string>ACE SmartDome Controller</string>
+      </property>
+      <widget class="QPushButton" name="pushButton">
+       <property name="geometry">
+        <rect>
+         <x>96</x>
+         <y>27</y>
+         <width>94</width>
+         <height>32</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Calibrate</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_2">
+       <property name="geometry">
+        <rect>
+         <x>64</x>
+         <y>56</y>
+         <width>132</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Home Position (Deg.) :</string>
+       </property>
+      </widget>
+      <widget class="QDoubleSpinBox" name="homePosition">
+       <property name="geometry">
+        <rect>
+         <x>208</x>
+         <y>56</y>
+         <width>67</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="maximum">
+        <double>359.990000000000009</double>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label">
+       <property name="geometry">
+        <rect>
+         <x>8</x>
+         <y>80</y>
+         <width>185</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Number of steps per revolution :</string>
+       </property>
+      </widget>
+      <widget class="QSpinBox" name="ticksPerRev">
+       <property name="geometry">
+        <rect>
+         <x>208</x>
+         <y>80</y>
+         <width>64</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="maximum">
+        <number>65535</number>
+       </property>
+      </widget>
+      <widget class="QGroupBox" name="groupBox">
+       <property name="geometry">
+        <rect>
+         <x>8</x>
+         <y>104</y>
+         <width>272</width>
+         <height>184</height>
+        </rect>
+       </property>
+       <property name="title">
+        <string>Automation</string>
+       </property>
+       <widget class="QCheckBox" name="autoShutdown">
+        <property name="geometry">
+         <rect>
+          <x>8</x>
+          <y>32</y>
+          <width>114</width>
+          <height>18</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Auto-Shutdown</string>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="rainShutdown">
+        <property name="geometry">
+         <rect>
+          <x>8</x>
+          <y>56</y>
+          <width>114</width>
+          <height>18</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Rain Shutdown</string>
+        </property>
+       </widget>
+       <widget class="QLabel" name="label_3">
+        <property name="geometry">
+         <rect>
+          <x>16</x>
+          <y>80</y>
+          <width>173</width>
+          <height>24</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Watchdog Timer (seconds) :</string>
+        </property>
+       </widget>
+       <widget class="QSpinBox" name="watchdogInterval">
+        <property name="geometry">
+         <rect>
+          <x>192</x>
+          <y>80</y>
+          <width>72</width>
+          <height>24</height>
+         </rect>
+        </property>
+        <property name="minimum">
+         <number>1</number>
+        </property>
+        <property name="maximum">
+         <number>65535</number>
+        </property>
+        <property name="value">
+         <number>300</number>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="disableDropout">
+        <property name="geometry">
+         <rect>
+          <x>8</x>
+          <y>104</y>
+          <width>120</width>
+          <height>18</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Disable Dropout</string>
+        </property>
+       </widget>
+      </widget>
+      <zorder>label_2</zorder>
+      <zorder>homePosition</zorder>
+      <zorder>label</zorder>
+      <zorder>ticksPerRev</zorder>
+      <zorder>groupBox</zorder>
+      <zorder>pushButton</zorder>
+     </widget>
+     <widget class="QPushButton" name="pushButtonCancel">
+      <property name="geometry">
+       <rect>
+        <x>120</x>
+        <y>456</y>
+        <width>81</width>
+        <height>32</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Cancel</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="pushButtonOK">
+      <property name="geometry">
+       <rect>
+        <x>216</x>
+        <y>456</y>
+        <width>80</width>
+        <height>32</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>OK</string>
+      </property>
+      <property name="default">
+       <bool>true</bool>
+      </property>
+     </widget>
+     <widget class="QWidget" name="layoutWidget">
+      <property name="geometry">
+       <rect>
+        <x>48</x>
+        <y>13</y>
+        <width>206</width>
+        <height>123</height>
+       </rect>
+      </property>
+      <layout class="QGridLayout" name="gridLayout_4">
+       <item row="2" column="0" alignment="Qt::AlignHCenter">
+        <widget class="QLabel" name="label_4">
+         <property name="text">
+          <string>© RTI-Zone.org, 2018</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0" alignment="Qt::AlignHCenter">
+        <widget class="QLabel" name="label_logo">
+         <property name="text">
+          <string/>
+         </property>
+         <property name="pixmap">
+          <pixmap>ACE.png</pixmap>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+         <property name="X2_PhotoFileName" stdset="0">
+          <string>ACE.png</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>X2Form</class>
+   <extends>QFrame</extends>
+   <header>x2form.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+ <designerdata>
+  <property name="gridDeltaX">
+   <number>8</number>
+  </property>
+  <property name="gridDeltaY">
+   <number>8</number>
+  </property>
+  <property name="gridSnapX">
+   <bool>true</bool>
+  </property>
+  <property name="gridSnapY">
+   <bool>true</bool>
+  </property>
+  <property name="gridVisible">
+   <bool>true</bool>
+  </property>
+ </designerdata>
+</ui>
