@@ -144,9 +144,6 @@ private:
 
 	int         m_nPrivateISIndex;
 	bool        m_bLinked;
-    CACEDome  m_ACEDome;
-    bool        m_bHasShutterControl;
-    bool        m_bOpenUpperShutterOnly;
+    CACEDome    m_ACEDome;
     bool        m_bCalibratingDome;
-    int         m_bBattRequest;
 };

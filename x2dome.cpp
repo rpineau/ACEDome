@@ -36,7 +36,6 @@ X2Dome::X2Dome(const char* pszSelection,
 
 	m_bLinked = false;
     m_bCalibratingDome = false;
-    m_bBattRequest = 0;
     
     m_ACEDome.SetSerxPointer(pSerX);
     m_ACEDome.setLogger(pLogger);
@@ -184,7 +183,6 @@ int X2Dome::execModalSettingsDialog()
         dx->setEnabled("disableDropout",false);
     }
 
-    m_bBattRequest = 0;
     m_bCalibratingDome = false;
     
     X2MutexLocker ml(GetMutex());
@@ -389,9 +387,6 @@ int X2Dome::dapiOpen(void)
     if(!m_bLinked)
         return ERR_NOLINK;
 
-    if(!m_bHasShutterControl)
-        return SB_OK;
-
     nErr = m_ACEDome.openShutter();
     if(nErr)
         return ERR_CMDFAILED;
@@ -406,9 +401,6 @@ int X2Dome::dapiClose(void)
 
     if(!m_bLinked)
         return ERR_NOLINK;
-
-    if(!m_bHasShutterControl)
-        return SB_OK;
 
     nErr = m_ACEDome.closeShutter();
     if(nErr)
@@ -425,12 +417,9 @@ int X2Dome::dapiPark(void)
     if(!m_bLinked)
         return ERR_NOLINK;
 
-    if(m_bHasShutterControl)
-    {
-        nErr = m_ACEDome.closeShutter();
-        if(nErr)
-            return ERR_CMDFAILED;
-    }
+    nErr = m_ACEDome.closeShutter();
+    if(nErr)
+        return ERR_CMDFAILED;
 
     nErr = m_ACEDome.parkDome();
     if(nErr)
@@ -491,12 +480,6 @@ int X2Dome::dapiIsOpenComplete(bool* pbComplete)
     if(!m_bLinked)
         return ERR_NOLINK;
     
-    if(!m_bHasShutterControl)
-    {
-        *pbComplete = true;
-        return SB_OK;
-    }
-
     nErr = m_ACEDome.isOpenComplete(*pbComplete);
     if(nErr)
         return ERR_CMDFAILED;
@@ -511,12 +494,6 @@ int	X2Dome::dapiIsCloseComplete(bool* pbComplete)
 
     if(!m_bLinked)
         return ERR_NOLINK;
-
-    if(!m_bHasShutterControl)
-    {
-        *pbComplete = true;
-        return SB_OK;
-    }
 
     nErr = m_ACEDome.isCloseComplete(*pbComplete);
     if(nErr)
