@@ -85,6 +85,7 @@ int CACEDome::Connect(const char *pszPort)
         m_bIsConnected = false;
         return nErr;
     }
+    m_pSerx->purgeTxRx();
     m_bIsConnected = true;
 
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
@@ -225,6 +226,7 @@ int CACEDome::getDomeAz(double &dDomeAz)
 {
     int nErr = ACE_OK;
     std::vector<std::string> svPosition;
+    std::string sHeading;
 
     if(!m_bIsConnected)
         return NOT_CONNECTED;
@@ -235,10 +237,20 @@ int CACEDome::getDomeAz(double &dDomeAz)
     nErr = getShortStatus();
     if(nErr)
         return nErr;
-    
+
+    if(m_svShortStatus.size()) {
+        // look for RL or RR
+        sHeading = findField(m_svShortStatus, "Home");
+        if(!sHeading.size()) {
+            sHeading = findField(m_svShortStatus, "Posn");
+            if(!sHeading.size())
+                return nErr;
+        }
+    }
+
     // convert Az string to double
-    if(m_svShortStatus.size()>1) {
-        nErr = parseFields(m_svShortStatus[0].c_str(), svPosition, ' ');
+    if(sHeading.size()) {
+        nErr = parseFields(sHeading.c_str(), svPosition, ' ');
         if(nErr)
             return nErr;
         if(svPosition.size()>1) {
@@ -396,7 +408,7 @@ int CACEDome::setDomeStepPerRev(int nStepPerRev)
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
-    snprintf(szBuf, SERIAL_BUFFER_SIZE, "%dLM\r\n", nStepPerRev);
+    snprintf(szBuf, SERIAL_BUFFER_SIZE, "%d LM\r\n", nStepPerRev);
     nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
     if(!nErr)
         m_nNbStepPerRev = nStepPerRev;
@@ -413,6 +425,7 @@ int CACEDome::isDomeMoving(bool &bIsMoving)
 {
     int nErr = ACE_OK;
     std::string sStatusLine;
+    std::string sMouvement;
     std::vector<std::string> svStatusLineFields;
 
     if(!m_bIsConnected)
@@ -422,18 +435,47 @@ int CACEDome::isDomeMoving(bool &bIsMoving)
     if(nErr)
         return nErr;
 
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CACEDome::isDomeMoving] m_svShortStatus.size() =  %lu\n", timestamp, m_svShortStatus.size());
+    fflush(Logfile);
+#endif
+
     bIsMoving = false;
-    if(m_svShortStatus.size()>=3) {
-        nErr = parseFields(m_svShortStatus[2].c_str(), svStatusLineFields, ' ');
+    if(m_svShortStatus.size()) {
+        // look for RL or RR
+        sMouvement = findField(m_svShortStatus, "RL");
+        if(!sMouvement.size()) {
+            sMouvement = findField(m_svShortStatus, "RR");
+            if(!sMouvement.size())
+                return nErr;
+        }
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+        ltime = time(NULL);
+        timestamp = asctime(localtime(&ltime));
+        timestamp[strlen(timestamp) - 1] = 0;
+        fprintf(Logfile, "[%s] [CACEDome::isDomeMoving] sMouvement =  %s\n", timestamp, sMouvement.c_str());
+        fflush(Logfile);
+#endif
+        nErr = parseFields(sMouvement.c_str(), svStatusLineFields, ' ');
         if(nErr)
             return nErr;
-        if(svStatusLineFields.size()>2) {
+        if(svStatusLineFields.size()>=2) {
             if(svStatusLineFields[1] == "00")
                 bIsMoving = false;
             else
                 bIsMoving = true;
         }
     }
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CACEDome::isDomeMoving] bIsMoving =  %s\n", timestamp, bIsMoving?"TRUE":"FALSE");
+    fflush(Logfile);
+#endif
 
     return nErr;
 }
@@ -452,18 +494,13 @@ int CACEDome::isDomeAtHome(bool &bAtHome)
         return nErr;
 
     bAtHome = false;
-    if(m_svShortStatus.size()>=3) {
-        nErr = parseFields(m_svShortStatus[2].c_str(), svStatusLineFields, ' ');
-        if(nErr)
-            return nErr;
-        if(svStatusLineFields.size()>2) {
-            if(svStatusLineFields[0] == "Home")
-                bAtHome = false;
-            else
-                bAtHome = true;
+    if(m_svShortStatus.size()) {
+        // look for Home
+        sStatusLine = findField(m_svShortStatus, "Home");
+        if(sStatusLine.size()) {
+             bAtHome = true;
         }
     }
-
     return nErr;
   
 }
@@ -617,7 +654,6 @@ int CACEDome::getFirmwareVersion(std::string& sVersion)
 int CACEDome::goHome()
 {
     int nErr = ACE_OK;
-    char szResp[SERIAL_BUFFER_SIZE];
 
     if(!m_bIsConnected)
         return NOT_CONNECTED;
@@ -625,7 +661,7 @@ int CACEDome::goHome()
     if(m_bCalibrating)
         return SB_OK;
 
-    nErr = domeCommand("HM\r\n", szResp, SERIAL_BUFFER_SIZE);
+    nErr = domeCommand("HM\r\n", NULL, SERIAL_BUFFER_SIZE);
 
     return nErr;
 }
@@ -633,7 +669,6 @@ int CACEDome::goHome()
 int CACEDome::calibrate()
 {
     int nErr = ACE_OK;
-    char resp[SERIAL_BUFFER_SIZE];
 
     if(!m_bIsConnected)
         return NOT_CONNECTED;
@@ -641,7 +676,7 @@ int CACEDome::calibrate()
     if(m_bCalibrating)
         return SB_OK;
 
-    nErr = domeCommand("LR\r\n", resp, SERIAL_BUFFER_SIZE);
+    nErr = domeCommand("LR\r\n", NULL, SERIAL_BUFFER_SIZE);
     if(nErr)
         return nErr;
 
@@ -1190,7 +1225,7 @@ void CACEDome::setDecimalFormat(int nNbDecimals)
     if(!m_bIsConnected)
         return;
 
-    snprintf(szBuf, SERIAL_BUFFER_SIZE, "%dDP\r\n", nNbDecimals);
+    snprintf(szBuf, SERIAL_BUFFER_SIZE, "%d DP\r\n", nNbDecimals);
     domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
 }
 

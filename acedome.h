@@ -36,12 +36,12 @@ public:
     CACEDome();
     ~CACEDome();
 
-    int        Connect(const char *szPort);
-    void        Disconnect(void);
-    bool        IsConnected(void) { return m_bIsConnected; }
+    int     Connect(const char *szPort);
+    void    Disconnect(void);
+    bool    IsConnected(void) { return m_bIsConnected; }
 
-    void        SetSerxPointer(SerXInterface *p) { m_pSerx = p; }
-    void        setLogger(LoggerInterface *pLogger) { m_pLogger = pLogger; };
+    void    SetSerxPointer(SerXInterface *p) { m_pSerx = p; }
+    void    setLogger(LoggerInterface *pLogger) { m_pLogger = pLogger; };
 
     // Dome commands
     int syncDome(double dAz, double dEl);
