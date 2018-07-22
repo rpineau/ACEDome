@@ -770,9 +770,6 @@ int CACEDome::isOpenComplete(bool &bComplete)
     fflush(Logfile);
 #endif
 
-
-
-
     // which shutter are we opening ?
     if(m_nCurrentShutterAction == OPENING_D1 && m_nShutterStateD1 == OPEN) {
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
@@ -996,6 +993,8 @@ int CACEDome::abortCurrentCommand()
         return NOT_CONNECTED;
 
     m_bCalibrating = false;
+    if(m_nCurrentShutterAction != OPEN || m_nCurrentShutterAction != CLOSED)
+        m_nCurrentShutterAction = SHUTTER_ERROR;
 
     return (domeCommand("ST\r\n", NULL, SERIAL_BUFFER_SIZE));
 }
