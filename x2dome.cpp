@@ -84,7 +84,8 @@ int X2Dome::establishLink(void)
     if (m_pIniUtil)
     {
         m_ACEDome.setAutoShutdown( m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_AUTOSHUTDOWN, true) );
-        m_ACEDome.setRainShutdown( m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_RAINSHUTDOWN,true) );
+        m_ACEDome.setRainShutdown( m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_RAINSHUTDOWN, true) );
+        m_ACEDome.setDropoutDisabled( m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_DROPOUT, false) );
     }
 	return nErr;
 }
@@ -146,7 +147,7 @@ int X2Dome::execModalSettingsDialog()
     if (NULL == (dx = uiutil.X2DX()))
         return ERR_POINTER;
 
-
+    X2MutexLocker ml(GetMutex());
     memset(szTmpBuf,0,SERIAL_BUFFER_SIZE);
 
     // set controls state depending on the connection state
@@ -184,8 +185,6 @@ int X2Dome::execModalSettingsDialog()
     }
 
     m_bCalibratingDome = false;
-    
-    X2MutexLocker ml(GetMutex());
 
     //Display the user interface
     if ((nErr = ui->exec(bPressedOK)))
@@ -228,7 +227,7 @@ void X2Dome::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
     bool bComplete = false;
     int nErr;
     char szTmpBuf[SERIAL_BUFFER_SIZE];
-    char szErrorMessage[LOG_BUFFER_SIZE];
+    char szErrorMessage[SERIAL_BUFFER_SIZE];
 
     if (!strcmp(pszEvent, "on_pushButtonCancel_clicked"))
         m_ACEDome.abortCurrentCommand();
@@ -243,7 +242,7 @@ void X2Dome::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
                 if(nErr) {
                     uiex->setEnabled("pushButton",true);
                     uiex->setEnabled("pushButtonOK",true);
-                    snprintf(szErrorMessage, LOG_BUFFER_SIZE, "Error calibrating dome : Error %d", nErr);
+                    snprintf(szErrorMessage, SERIAL_BUFFER_SIZE, "Error calibrating dome : Error %d", nErr);
                     uiex->messageBox("ACEDome Calibrate", szErrorMessage);
                     m_bCalibratingDome = false;
                     return;;
@@ -417,9 +416,9 @@ int X2Dome::dapiPark(void)
     if(!m_bLinked)
         return ERR_NOLINK;
 
-    nErr = m_ACEDome.closeShutter();
-    if(nErr)
-        return ERR_CMDFAILED;
+    // nErr = m_ACEDome.closeShutter();
+    // if(nErr)
+    //    return ERR_CMDFAILED;
 
     nErr = m_ACEDome.parkDome();
     if(nErr)

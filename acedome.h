@@ -23,7 +23,6 @@
 
 #define SERIAL_BUFFER_SIZE 2048
 #define MAX_TIMEOUT 250
-#define LOG_BUFFER_SIZE 256
 
 // error codes
 // Error code

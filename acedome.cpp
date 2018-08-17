@@ -234,18 +234,16 @@ int CACEDome::getDomeAz(double &dDomeAz)
     if(m_bCalibrating)
         return nErr;
 
-    nErr = getShortStatus();
+    nErr = getShortStatus(); // this timesout from time to time.
     if(nErr)
-        return nErr;
+        return ACE_OK; // let's ignore the error and not change the data, they'll get pick up on the next request.
 
-    if(m_svShortStatus.size()) {
-        // look for RL or RR
-        sHeading = findField(m_svShortStatus, "Home");
-        if(!sHeading.size()) {
-            sHeading = findField(m_svShortStatus, "Posn");
-            if(!sHeading.size())
-                return nErr;
-        }
+    // look for Home or Posn
+    sHeading = findField(m_svShortStatus, "Home");
+    if(!sHeading.size()) {
+        sHeading = findField(m_svShortStatus, "Posn");
+        if(!sHeading.size())
+            return nErr;
     }
 
     // convert Az string to double
@@ -334,9 +332,9 @@ int CACEDome::getShutterState()
         return NOT_CONNECTED;
 
 
-    nErr = getShortStatus();
+    nErr = getShortStatus(); // this timesout from time to time.
     if(nErr)
-        return nErr;
+        return ACE_OK; // let's ignore the error and not change the data, they'll get pick up on the next request.
     // both shutter need to be open to report OPEN
     sLine = findField(m_svShortStatus, "D1 ");
     if(!sLine.empty()) {
@@ -431,9 +429,12 @@ int CACEDome::isDomeMoving(bool &bIsMoving)
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
-    nErr = getShortStatus();
+    nErr = getShortStatus(); // this timesout from time to time.
     if(nErr)
-        return nErr;
+        return ACE_OK; // let's ignore the error and not change the data, they'll get pick up on the next request.
+
+    if(m_svShortStatus.size()<5)
+        return ACE_OK; // we got a weird response
 
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
     ltime = time(NULL);
@@ -444,31 +445,30 @@ int CACEDome::isDomeMoving(bool &bIsMoving)
 #endif
 
     bIsMoving = false;
-    if(m_svShortStatus.size()) {
-        // look for RL or RR
-        sMouvement = findField(m_svShortStatus, "RL");
-        if(!sMouvement.size()) {
-            sMouvement = findField(m_svShortStatus, "RR");
-            if(!sMouvement.size())
-                return nErr;
-        }
-#if defined ACE_DEBUG && ACE_DEBUG >= 2
-        ltime = time(NULL);
-        timestamp = asctime(localtime(&ltime));
-        timestamp[strlen(timestamp) - 1] = 0;
-        fprintf(Logfile, "[%s] [CACEDome::isDomeMoving] sMouvement =  %s\n", timestamp, sMouvement.c_str());
-        fflush(Logfile);
-#endif
-        nErr = parseFields(sMouvement.c_str(), svStatusLineFields, ' ');
-        if(nErr)
+    // look for RL or RR
+    sMouvement = findField(m_svShortStatus, "RL");
+    if(!sMouvement.size()) {
+        sMouvement = findField(m_svShortStatus, "RR");
+        if(!sMouvement.size())
             return nErr;
-        if(svStatusLineFields.size()>=2) {
-            if(svStatusLineFields[1] == "00")
-                bIsMoving = false;
-            else
-                bIsMoving = true;
-        }
     }
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CACEDome::isDomeMoving] sMouvement =  %s\n", timestamp, sMouvement.c_str());
+    fflush(Logfile);
+#endif
+    nErr = parseFields(sMouvement.c_str(), svStatusLineFields, ' ');
+    if(nErr)
+        return nErr;
+    if(svStatusLineFields.size()>=2) {
+        if(svStatusLineFields[1] == "00")
+            bIsMoving = false;
+        else
+            bIsMoving = true;
+    }
+
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
@@ -489,22 +489,23 @@ int CACEDome::isDomeAtHome(bool &bAtHome)
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
-    nErr = getShortStatus();
+    nErr = getShortStatus(); // this timesout from time to time.
     if(nErr)
-        return nErr;
+        return ACE_OK; // let's ignore the error and not change the data, they'll get pick up on the next request.
 
     bAtHome = false;
-    if(m_svShortStatus.size()) {
-        // look for Home
-        sStatusLine = findField(m_svShortStatus, "Home");
-        if(sStatusLine.size()) {
-             bAtHome = true;
-        }
+
+    if(m_svShortStatus.size()<5)
+        return ACE_OK; // we got a weird response
+
+    // look for Home
+    sStatusLine = findField(m_svShortStatus, "Home");
+    if(sStatusLine.size()) {
+         bAtHome = true;
     }
     return nErr;
   
 }
-
 
 
 int CACEDome::syncDome(double dAz, double dEl)
@@ -515,12 +516,12 @@ int CACEDome::syncDome(double dAz, double dEl)
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
-    m_dCurrentAzPosition = dAz;
     snprintf(szBuf, SERIAL_BUFFER_SIZE, "%3.2f RE\r\n", dAz);
     nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
     if(nErr)
         return nErr;
 
+    m_dCurrentAzPosition = dAz;
     return nErr;
 }
 
@@ -531,6 +532,7 @@ int CACEDome::parkDome()
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
+    // there is no park position so we set park = home
     nErr = goHome();
 
     return nErr;
@@ -539,8 +541,8 @@ int CACEDome::parkDome()
 int CACEDome::unparkDome()
 {
     m_bParked = false;
-    m_dCurrentAzPosition = m_dHomeAz;
-    syncDome(m_dCurrentAzPosition,m_dCurrentElPosition);
+    // there is no park position so we set park = home and on unpark ask for the home position.
+    m_dCurrentAzPosition = getHomeAz();
     return 0;
 }
 
@@ -689,11 +691,12 @@ int CACEDome::isGoToComplete(bool &bComplete)
 {
     int nErr = 0;
     double dDomeAz = 0;
-    bool bIsMoving = false;
+    bool bIsMoving;
 
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
+    bIsMoving = true;
     nErr = isDomeMoving(bIsMoving);
     if(nErr) {
         return nErr;
@@ -750,12 +753,17 @@ int CACEDome::isGoToComplete(bool &bComplete)
 int CACEDome::isOpenComplete(bool &bComplete)
 {
     int nErr = 0;
+    bComplete = false;
 
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
     nErr = getShutterState();
-    if(nErr)
+    if(nErr == BAD_CMD_RESPONSE) {
+        // if we got a timeout we need to ignore it on this call.
+        return ACE_OK;
+    }
+    else if (nErr)
         return ERR_CMDFAILED;
 
     bComplete = false;
@@ -790,10 +798,18 @@ int CACEDome::isOpenComplete(bool &bComplete)
             fprintf(Logfile, "[%s] [CACEDome::isOpenComplete] Opening D2\n", timestamp);
             fflush(Logfile);
 #endif
-            m_nCurrentShutterAction = OPENING_D2;
             nErr = domeCommand("DN\r\n", NULL, SERIAL_BUFFER_SIZE);
-            if(nErr)
+            if(nErr) {
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+                ltime = time(NULL);
+                timestamp = asctime(localtime(&ltime));
+                timestamp[strlen(timestamp) - 1] = 0;
+                fprintf(Logfile, "[%s] [CACEDome::isOpenComplete] ERROR Opening D2\n", timestamp);
+                fflush(Logfile);
+#endif
                 return nErr;
+            }
+            m_nCurrentShutterAction = OPENING_D2;
         }
         else {
             m_nCurrentShutterAction = OPEN;
@@ -826,7 +842,11 @@ int CACEDome::isCloseComplete(bool &bComplete)
         return NOT_CONNECTED;
 
     nErr = getShutterState();
-    if(nErr)
+    if(nErr == BAD_CMD_RESPONSE) {
+        // if we got a timeout we need to ignore it on this call.
+        return ACE_OK;
+    }
+    else if (nErr)
         return ERR_CMDFAILED;
 
     bComplete = false;
@@ -852,11 +872,18 @@ int CACEDome::isCloseComplete(bool &bComplete)
         fflush(Logfile);
 #endif
         //now close main shutter
-        m_nCurrentShutterAction = CLOSING_D1;
         nErr = domeCommand("CL\r\n", NULL, SERIAL_BUFFER_SIZE);
-        if(nErr)
+        if(nErr) {
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+            ltime = time(NULL);
+            timestamp = asctime(localtime(&ltime));
+            timestamp[strlen(timestamp) - 1] = 0;
+            fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] ERROR CLosing D1 : %d\n", timestamp, nErr);
+            fflush(Logfile);
+#endif
             return nErr;
-
+        }
+        m_nCurrentShutterAction = CLOSING_D1;
     }
     else if(m_nCurrentShutterAction == CLOSING_D1 && m_nShutterStateD1 == CLOSED) {
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
@@ -903,8 +930,10 @@ int CACEDome::isUnparkComplete(bool &bComplete)
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
-    m_bParked = false;
-    bComplete = true;
+    bComplete = false;
+
+    if(!m_bParked)
+        bComplete = true;
 
     return nErr;
 }
@@ -912,12 +941,13 @@ int CACEDome::isUnparkComplete(bool &bComplete)
 int CACEDome::isFindHomeComplete(bool &bComplete)
 {
     int nErr = 0;
-    bool bIsMoving = false;
+    bool bIsMoving;
     bool bIsAtHome = false;
 
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
+    bIsMoving = true;
     nErr = isDomeMoving(bIsMoving);
     if(nErr)
         return nErr;
@@ -972,18 +1002,16 @@ int CACEDome::isCalibratingComplete(bool &bComplete)
 
     if(m_nMotorState == 0) { // FIXME
         bComplete = false;
-        return nErr;
     }
     else if (m_nMotorState == 1){ // FIXME
         bComplete = true;
-        return nErr;
     }
     else {
         // probably still moving
         bComplete = false;
-        return nErr;
+        m_bCalibrating = false;
     }
-
+    return nErr;
 }
 
 
