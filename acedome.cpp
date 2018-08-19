@@ -24,6 +24,7 @@ CACEDome::CACEDome()
 
     m_nNbStepPerRev = 0;
     m_dHomeAz = 180;
+    m_nHomingTries = 0;
 
     m_dCurrentAzPosition = 0.0;
     m_dCurrentElPosition = 0.0;
@@ -76,6 +77,7 @@ int CACEDome::Connect(const char *pszPort)
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
     fprintf(Logfile, "[%s] [CACEDome::Connect] Connect called.\n", timestamp);
+    fprintf(Logfile, "[%s] [CACEDome::Connect] Connecting to port %s.\n", timestamp, pszPort);
     fflush(Logfile);
 #endif
 
@@ -122,6 +124,7 @@ int CACEDome::Connect(const char *pszPort)
 
     nErr = getShutterState();
     setDecimalFormat(2); // 2 decimals for degrees.
+    getDomeAzCoast(m_dCoastAz);
     return SB_OK;
 }
 
@@ -433,7 +436,7 @@ int CACEDome::isDomeMoving(bool &bIsMoving)
     if(nErr)
         return ACE_OK; // let's ignore the error and not change the data, they'll get pick up on the next request.
 
-    if(m_svShortStatus.size()<5)
+    if(m_svShortStatus.size()<3)
         return ACE_OK; // we got a weird response
 
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
@@ -485,6 +488,8 @@ int CACEDome::isDomeAtHome(bool &bAtHome)
     int nErr = ACE_OK;
     std::string sStatusLine;
     std::vector<std::string> svStatusLineFields;
+    std::vector<std::string> svPosition;
+    std::string sHeading;
 
     if(!m_bIsConnected)
         return NOT_CONNECTED;
@@ -495,14 +500,34 @@ int CACEDome::isDomeAtHome(bool &bAtHome)
 
     bAtHome = false;
 
-    if(m_svShortStatus.size()<5)
+    if(m_svShortStatus.size()<1)
         return ACE_OK; // we got a weird response
 
     // look for Home
     sStatusLine = findField(m_svShortStatus, "Home");
     if(sStatusLine.size()) {
          bAtHome = true;
+        m_bHomePassed = true;
     }
+
+    // look for Home or Posn
+    sHeading = findField(m_svShortStatus, "Home");
+    if(!sHeading.size()) {
+        sHeading = findField(m_svShortStatus, "Posn");
+        if(!sHeading.size())
+            return nErr;
+    }
+
+    // convert Az string to double
+    if(sHeading.size()) {
+        nErr = parseFields(sHeading.c_str(), svPosition, ' ');
+        if(nErr)
+            return nErr;
+        if(svPosition.size()>1) {
+            m_dCurrentAzPosition = atof(svPosition[1].c_str());
+        }
+    }
+
     return nErr;
   
 }
@@ -561,7 +586,8 @@ int CACEDome::gotoAzimuth(double dNewAz)
         return nErr;
 
     m_dGotoAz = dNewAz;
-
+    m_nGotoTries = 0;
+    
     return nErr;
 }
 
@@ -662,7 +688,7 @@ int CACEDome::goHome()
 
     if(m_bCalibrating)
         return SB_OK;
-
+    m_bHomePassed = false;
     nErr = domeCommand("HM\r\n", NULL, SERIAL_BUFFER_SIZE);
 
     return nErr;
@@ -724,7 +750,7 @@ int CACEDome::isGoToComplete(bool &bComplete)
     fflush(Logfile);
 #endif
 
-    if ((floor(m_dGotoAz) <= floor(dDomeAz)+1) && (floor(m_dGotoAz) >= floor(dDomeAz)-1)) {
+    if ((floor(m_dGotoAz) <= floor(dDomeAz)+m_dCoastAz) && (floor(m_dGotoAz) >= floor(dDomeAz)-m_dCoastAz)) {
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
         ltime = time(NULL);
         timestamp = asctime(localtime(&ltime));
@@ -733,6 +759,7 @@ int CACEDome::isGoToComplete(bool &bComplete)
         fflush(Logfile);
 #endif
         bComplete = true;
+        m_nGotoTries = 0;
     }
     else {
         // we're not moving and we're not at the final destination !!!
@@ -743,8 +770,16 @@ int CACEDome::isGoToComplete(bool &bComplete)
         fprintf(Logfile, "[%s] [CACEDome::isGoToComplete] GOTO ERROR, not moving but not at target\n", timestamp);
         fflush(Logfile);
 #endif
-        bComplete = false;
-        nErr = ERR_CMDFAILED;
+        if(m_nGotoTries == 0) {
+            bComplete = false;
+            m_nGotoTries = 1;
+            gotoAzimuth(m_dGotoAz);
+        }
+        else {
+            m_nGotoTries = 0;
+            bComplete = false;
+            nErr = ERR_CMDFAILED;
+        }
     }
 
     return nErr;
@@ -958,6 +993,8 @@ int CACEDome::isFindHomeComplete(bool &bComplete)
         return nErr;
     }
 
+    // it's no longer monving so we're probably at home
+    bIsAtHome = true;
     nErr = isDomeAtHome(bIsAtHome);
     if(nErr)
         return nErr;
@@ -967,20 +1004,42 @@ int CACEDome::isFindHomeComplete(bool &bComplete)
         bComplete = true;
     }
     else {
-        // we're not moving and we're not at the home position !!!
-        if (m_bDebugLog) {
+        // did we just pass home
+        if ((ceil(m_dCurrentAzPosition) <= ceil(m_dHomeAz)+m_dCoastAz) && (ceil(m_dCurrentAzPosition) >= ceil(m_dHomeAz)-m_dCoastAz)) {
+            m_nHomingTries = 0;
+            gotoAzimuth(m_dHomeAz); // back out a bit
+            bComplete = true;
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
             ltime = time(NULL);
             timestamp = asctime(localtime(&ltime));
             timestamp[strlen(timestamp) - 1] = 0;
-            fprintf(Logfile, "[%s] [CACEDome::isFindHomeComplete] Not moving and not at home !!!\n", timestamp);
+            fprintf(Logfile, "[%s] [CACEDome::isFindHomeComplete] Close to home, backing out to %3.2f !!!\n", timestamp, m_dHomeAz);
             fflush(Logfile);
 #endif
         }
-        bComplete = false;
-        m_bHomed = false;
-        m_bParked = false;
-        nErr = ERR_CMDFAILED;
+        else {
+            // we're not moving and we're not at the home position !!!
+            if (m_bDebugLog) {
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+                ltime = time(NULL);
+                timestamp = asctime(localtime(&ltime));
+                timestamp[strlen(timestamp) - 1] = 0;
+                fprintf(Logfile, "[%s] [CACEDome::isFindHomeComplete] Not moving and not at home !!!\n", timestamp);
+                fflush(Logfile);
+#endif
+            }
+            if(m_nHomingTries == 0) {
+                bComplete = false;
+                m_nHomingTries = 1;
+                gotoAzimuth(m_dHomeAz);
+            }
+            else {
+                bComplete = false;
+                m_bHomed = false;
+                m_bParked = false;
+                nErr = ERR_CMDFAILED;
+            }
+        }
     }
 
     return nErr;
@@ -1255,6 +1314,48 @@ void CACEDome::setDecimalFormat(int nNbDecimals)
     snprintf(szBuf, SERIAL_BUFFER_SIZE, "%d DP\r\n", nNbDecimals);
     domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
 }
+
+int CACEDome::getDomeAzCoast(double &dAz)
+{
+    int nErr = ACE_OK;
+    std::string sLine;
+    std::vector<std::string> svFields;
+
+    if(!m_bIsConnected)
+        return NOT_CONNECTED;
+
+    nErr = getExtendedStatus();
+    if(nErr)
+        return nErr;
+    // convert Az string to double
+    sLine = findField(m_svExtStatus, "Coast");
+    if(!sLine.empty()) {
+        parseFields(sLine.c_str(), svFields, ':');
+        if(svFields.size()>1) {
+            dAz = atof(svFields[1].c_str());
+        }
+    }
+    return nErr;
+}
+
+int CACEDome::setDomeAzCoast(double dAz)
+{
+    int nErr = ACE_OK;
+    char szBuf[SERIAL_BUFFER_SIZE];
+
+    if(!m_bIsConnected)
+        return NOT_CONNECTED;
+
+    snprintf(szBuf, SERIAL_BUFFER_SIZE, "%d CS\r\n", int(dAz));
+    nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
+    if(nErr)
+        return nErr;
+
+    m_dCoastAz = dAz;
+    return nErr;
+
+}
+
 
 int CACEDome::getShortStatus()
 {

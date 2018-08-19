@@ -87,6 +87,8 @@ public:
 
     void setDecimalFormat(int nNbDecimals);
 
+    int getDomeAzCoast(double &dAz);
+    int setDomeAzCoast(double dAz);
 
     void setDebugLog(bool enable);
 
@@ -118,6 +120,7 @@ protected:
     
     bool            m_bIsConnected;
     bool            m_bHomed;
+    bool            m_bHomePassed;
     bool            m_bParked;
     bool            m_bCalibrating;
     bool            m_bDropoutDisabled;
@@ -125,13 +128,14 @@ protected:
     int             m_nNbStepPerRev;
     int             m_nWatchdogTimer;
     double          m_dHomeAz;
-    
+    double          m_dCoastAz;
 
     double          m_dCurrentAzPosition;
     double          m_dCurrentElPosition;
 
     double          m_dGotoAz;
-    
+    int             m_nGotoTries;
+    int             m_nHomingTries;
     SerXInterface   *m_pSerx;
     
     std::string     m_sFirmwareVersion;

@@ -131,6 +131,7 @@ int X2Dome::execModalSettingsDialog()
     bool bPressedOK = false;
     char szTmpBuf[SERIAL_BUFFER_SIZE];
     double dHomeAz;
+    double dAzimuthCoast;
     int nTicks;
     int nWatchdogTimer;
     bool bEnabled;
@@ -157,6 +158,9 @@ int X2Dome::execModalSettingsDialog()
         // ticks per rev
         dx->setPropertyInt("ticksPerRev","value", m_ACEDome.getNbTicksPerRev());
         dx->setEnabled("pushButton",true);
+        //Az Coast
+        m_ACEDome.getDomeAzCoast(dAzimuthCoast);
+        dx->setPropertyDouble("azimuthCoast","value", dAzimuthCoast);
         // auto shutdown
         m_ACEDome.getAutoShutdown(bEnabled);
         dx->setChecked("autoShutdown",bEnabled);
@@ -172,12 +176,14 @@ int X2Dome::execModalSettingsDialog()
     }
     else {
         snprintf(szTmpBuf,16,"NA");
-        dx->setPropertyInt("homePosition","value", 0);
+        dx->setPropertyDouble("homePosition","value", 0);
         dx->setPropertyInt("ticksPerRev","value", 0);
+        dx->setPropertyDouble("azimuthCoast","value", 0);
         dx->setPropertyInt("watchdogInterval","value", 0);
         dx->setEnabled("pushButton",false);
         dx->setEnabled("homePosition",false);
         dx->setEnabled("ticksPerRev",false);
+        dx->setEnabled("azimuthCoast",false);
         dx->setEnabled("autoShutdown",false);
         dx->setEnabled("rainShutdown",false);
         dx->setEnabled("watchdogInterval",false);
@@ -195,6 +201,7 @@ int X2Dome::execModalSettingsDialog()
     {
         dx->propertyDouble("homePosition", "value", dHomeAz);
         dx->propertyInt("ticksPerRev", "value", nTicks);
+        dx->propertyDouble("azimuthCoast", "value", dAzimuthCoast);
         dx->propertyInt("watchdogInterval", "value", nWatchdogTimer);
         bEnabledAutoShut = dx->isChecked("autoShutdown");
         bEnabledRainShut = dx->isChecked("rainShutdown");
@@ -205,6 +212,8 @@ int X2Dome::execModalSettingsDialog()
             m_ACEDome.setHomeAz(dHomeAz);
             // set ticks
             m_ACEDome.setNbTicksPerRev(nTicks);
+            // set Azimuth Coasr
+            m_ACEDome.setDomeAzCoast(dAzimuthCoast);
             // set watchdog
             m_ACEDome.setWatchdogResetTimer(nWatchdogTimer);
             // set autoshutdown
