@@ -23,6 +23,7 @@
 
 #define SERIAL_BUFFER_SIZE 2048
 #define MAX_TIMEOUT 250
+#define NB_RX_WAIT 2
 
 // error codes
 // Error code

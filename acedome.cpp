@@ -148,12 +148,31 @@ int CACEDome::readResponse(char *pszRespBuffer, int nBufferLen)
     unsigned long ulBytesRead = 0;
     unsigned long ulTotalBytesRead = 0;
     char *pszBufPtr;
+    int nBytesWaiting = 0 ;
+    int nbTimeouts = 0;
 
     memset(pszRespBuffer, 0, (size_t) nBufferLen);
     pszBufPtr = pszRespBuffer;
 
     do {
-        nErr = m_pSerx->readFile(pszBufPtr, 1, ulBytesRead, MAX_TIMEOUT);
+        m_pSerx->bytesWaitingRx(nBytesWaiting);
+        if(!nBytesWaiting) {
+            usleep(MAX_TIMEOUT*1000);
+            nbTimeouts++;
+            if(nbTimeouts > NB_RX_WAIT) {
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+                ltime = time(NULL);
+                timestamp = asctime(localtime(&ltime));
+                timestamp[strlen(timestamp) - 1] = 0;
+                fprintf(Logfile, "[%s] [CACEDome::readResponse] bytesWaitingRx timeout, no data for %d loops\n", timestamp, NB_RX_WAIT);
+                fflush(Logfile);
+#endif
+                break;
+            }
+            continue;
+        }
+        // nErr = m_pSerx->readFile(pszBufPtr, 1, ulBytesRead, MAX_TIMEOUT);
+        nErr = m_pSerx->readFile(pszBufPtr, nBytesWaiting, ulBytesRead, MAX_TIMEOUT);
         if(nErr) {
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
             ltime = time(NULL);
@@ -165,7 +184,7 @@ int CACEDome::readResponse(char *pszRespBuffer, int nBufferLen)
             return nErr;
         }
 
-        if (ulBytesRead !=1) {// timeout
+        if (ulBytesRead != nBytesWaiting) {// timeout
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
             ltime = time(NULL);
             timestamp = asctime(localtime(&ltime));
@@ -175,8 +194,10 @@ int CACEDome::readResponse(char *pszRespBuffer, int nBufferLen)
 #endif
             break;
         }
+
         ulTotalBytesRead += ulBytesRead;
-    } while (*pszBufPtr++ != '>' && ulTotalBytesRead < nBufferLen );
+        pszBufPtr+=ulBytesRead;
+    } while ( strstr(pszRespBuffer,">\r") == NULL && strstr(pszRespBuffer,">\n") == NULL && ulTotalBytesRead < nBufferLen );
 
     if(!ulTotalBytesRead)
         nErr = BAD_CMD_RESPONSE;
