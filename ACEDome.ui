@@ -7,19 +7,19 @@
     <x>0</x>
     <y>0</y>
     <width>340</width>
-    <height>512</height>
+    <height>616</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
     <width>340</width>
-    <height>512</height>
+    <height>616</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
     <width>340</width>
-    <height>512</height>
+    <height>616</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -55,7 +55,7 @@
         <x>13</x>
         <y>141</y>
         <width>288</width>
-        <height>296</height>
+        <height>408</height>
        </rect>
       </property>
       <property name="title">
@@ -144,7 +144,7 @@
          <x>8</x>
          <y>152</y>
          <width>272</width>
-         <height>136</height>
+         <height>240</height>
         </rect>
        </property>
        <property name="title">
@@ -155,8 +155,8 @@
          <rect>
           <x>8</x>
           <y>32</y>
-          <width>114</width>
-          <height>18</height>
+          <width>176</width>
+          <height>24</height>
          </rect>
         </property>
         <property name="text">
@@ -168,8 +168,8 @@
          <rect>
           <x>8</x>
           <y>56</y>
-          <width>114</width>
-          <height>18</height>
+          <width>176</width>
+          <height>24</height>
          </rect>
         </property>
         <property name="text">
@@ -180,7 +180,7 @@
         <property name="geometry">
          <rect>
           <x>16</x>
-          <y>80</y>
+          <y>120</y>
           <width>173</width>
           <height>24</height>
          </rect>
@@ -188,12 +188,15 @@
         <property name="text">
          <string>Watchdog Timer (seconds) :</string>
         </property>
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
        </widget>
        <widget class="QSpinBox" name="watchdogInterval">
         <property name="geometry">
          <rect>
           <x>192</x>
-          <y>80</y>
+          <y>120</y>
           <width>72</width>
           <height>24</height>
          </rect>
@@ -215,13 +218,77 @@
         <property name="geometry">
          <rect>
           <x>8</x>
-          <y>104</y>
+          <y>152</y>
           <width>120</width>
-          <height>18</height>
+          <height>24</height>
          </rect>
         </property>
         <property name="text">
          <string>Disable Dropout</string>
+        </property>
+       </widget>
+       <widget class="QLabel" name="label_6">
+        <property name="geometry">
+         <rect>
+          <x>16</x>
+          <y>88</y>
+          <width>173</width>
+          <height>24</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Number of Rain sensors :</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+       <widget class="QSpinBox" name="nbRainSensors">
+        <property name="geometry">
+         <rect>
+          <x>192</x>
+          <y>88</y>
+          <width>72</width>
+          <height>24</height>
+         </rect>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+        <property name="minimum">
+         <number>1</number>
+        </property>
+        <property name="maximum">
+         <number>4</number>
+        </property>
+        <property name="value">
+         <number>1</number>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="closeOnPark">
+        <property name="geometry">
+         <rect>
+          <x>8</x>
+          <y>176</y>
+          <width>168</width>
+          <height>24</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Close shutter on Park</string>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="openOnUnpark">
+        <property name="geometry">
+         <rect>
+          <x>8</x>
+          <y>200</y>
+          <width>168</width>
+          <height>24</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Open shutter on Unpark</string>
         </property>
        </widget>
       </widget>
@@ -267,7 +334,7 @@
       <property name="geometry">
        <rect>
         <x>120</x>
-        <y>448</y>
+        <y>552</y>
         <width>81</width>
         <height>32</height>
        </rect>
@@ -280,7 +347,7 @@
       <property name="geometry">
        <rect>
         <x>216</x>
-        <y>448</y>
+        <y>552</y>
         <width>80</width>
         <height>32</height>
        </rect>

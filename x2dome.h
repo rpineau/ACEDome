@@ -21,6 +21,8 @@ class TickCountInterface;
 #define CHILD_KEY_AUTOSHUTDOWN "AutoShutdown"
 #define CHILD_KEY_RAINSHUTDOWN "RainShutdown"
 #define CHILD_KEY_DROPOUT "Dropout"
+#define CHILD_KEY_CLOSE_ON_PARK "CloseOnPark"
+#define CHILD_KEY_OPEN_ON_UNPARK "OpenOnUnpark"
 
 #if defined(SB_WIN_BUILD)
 #define DEF_PORT_NAME					"COM1"

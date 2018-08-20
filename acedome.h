@@ -82,6 +82,11 @@ public:
     int getRainShutdown(bool &bEnabled);
     int setRainShutdown(bool bEnabled);
 
+    int getNbRainSensors(int &nNbSensors);
+    int setNbRainSensors(int nNbSensors);
+
+    int getRainState(bool &isRaining);
+
     void getDropoutDisabled(bool &bDisabled);
     void setDropoutDisabled(bool bDisabled);
 
@@ -89,6 +94,12 @@ public:
 
     int getDomeAzCoast(double &dAz);
     int setDomeAzCoast(double dAz);
+
+    void setCloseOnPark(bool bEnabled);
+    void getCloseOnPark(bool &bEnable);
+
+    void setOpenOnUnpark(bool bEnabled);
+    void getOpenOnUnpark(bool &bEnabled);
 
     void setDebugLog(bool enable);
 
@@ -122,8 +133,12 @@ protected:
     bool            m_bHomed;
     bool            m_bHomePassed;
     bool            m_bParked;
+    bool            m_bClosedDone;
     bool            m_bCalibrating;
     bool            m_bDropoutDisabled;
+
+    bool            m_bOpenOnUnpark;
+    bool            m_bCloseOnPark;
 
     int             m_nNbStepPerRev;
     int             m_nWatchdogTimer;
@@ -144,6 +159,8 @@ protected:
     bool            m_bShutterOpened;
 
     int             m_nMotorState;
+
+    int             m_nNbRainSensors;
 
     std::vector<std::string>    m_svShortStatus;
     std::vector<std::string>    m_svExtStatus;

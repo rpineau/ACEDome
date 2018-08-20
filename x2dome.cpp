@@ -86,6 +86,8 @@ int X2Dome::establishLink(void)
         m_ACEDome.setAutoShutdown( m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_AUTOSHUTDOWN, true) );
         m_ACEDome.setRainShutdown( m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_RAINSHUTDOWN, true) );
         m_ACEDome.setDropoutDisabled( m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_DROPOUT, false) );
+        m_ACEDome.setCloseOnPark( m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_CLOSE_ON_PARK, false) );
+        m_ACEDome.setOpenOnUnpark( m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_OPEN_ON_UNPARK, false) );
     }
 	return nErr;
 }
@@ -133,12 +135,16 @@ int X2Dome::execModalSettingsDialog()
     double dHomeAz;
     double dAzimuthCoast;
     int nTicks;
+    int nNbRainSensors;
     int nWatchdogTimer;
     bool bEnabled;
     bool bEnabledAutoShut;
     bool bEnabledRainShut;
     bool bDisableDropout;
     bool bDisabled;
+    bool bOpenOnUnpark;
+    bool bCloseOnPark;
+
     if (NULL == ui)
         return ERR_POINTER;
 
@@ -168,11 +174,21 @@ int X2Dome::execModalSettingsDialog()
         m_ACEDome.getRainShutdown(bEnabled);
         dx->setChecked("rainShutdown",bEnabled);
 
+        m_ACEDome.getNbRainSensors(nNbRainSensors);
+        dx->setPropertyInt("nbRainSensors","value",nNbRainSensors);
+
         // watchdog
         dx->setPropertyInt("watchdogInterval","value", m_ACEDome.getWatchdogResetTimer());
         // dropout enable/disable
         m_ACEDome.getDropoutDisabled(bDisabled);
         dx->setChecked("disableDropout",bDisabled);
+
+        // open/close on park/unpark
+        m_ACEDome.getCloseOnPark(bCloseOnPark);
+        dx->setChecked("closeOnPark",bCloseOnPark);
+        m_ACEDome.getOpenOnUnpark(bOpenOnUnpark);
+        dx->setChecked("openOnUnpark",bOpenOnUnpark);
+
     }
     else {
         snprintf(szTmpBuf,16,"NA");
@@ -205,7 +221,10 @@ int X2Dome::execModalSettingsDialog()
         dx->propertyInt("watchdogInterval", "value", nWatchdogTimer);
         bEnabledAutoShut = dx->isChecked("autoShutdown");
         bEnabledRainShut = dx->isChecked("rainShutdown");
+        dx->propertyInt("nbRainSensors","value",nNbRainSensors);
         bDisableDropout = dx->isChecked("disableDropout");
+        bCloseOnPark = dx->isChecked("closeOnPark");
+        bOpenOnUnpark = dx->isChecked("openOnUnpark");
 
         if(m_bLinked)
         {
@@ -220,12 +239,19 @@ int X2Dome::execModalSettingsDialog()
             m_ACEDome.setAutoShutdown(bEnabledAutoShut);
             // set rain shutdown
             m_ACEDome.setRainShutdown(bEnabledAutoShut);
+            // rain sensors
+            m_ACEDome.setNbRainSensors(nNbRainSensors);
             // enable/disabled dropout
             m_ACEDome.setDropoutDisabled(bDisableDropout);
+            // open/close on park/unpark
+            m_ACEDome.setOpenOnUnpark(bOpenOnUnpark);
+            m_ACEDome.setCloseOnPark(bCloseOnPark);
         }
         nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_AUTOSHUTDOWN, bEnabledAutoShut);
         nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_RAINSHUTDOWN, bEnabledRainShut);
         nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_DROPOUT, bDisableDropout);
+        nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_CLOSE_ON_PARK, bCloseOnPark);
+        nErr |= m_pIniUtil->writeInt(PARENT_KEY, CHILD_KEY_OPEN_ON_UNPARK, bOpenOnUnpark);
     }
     return nErr;
 

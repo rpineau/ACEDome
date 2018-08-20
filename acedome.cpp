@@ -35,9 +35,12 @@ CACEDome::CACEDome()
     m_bDropoutDisabled = false;
 
     m_bParked = true;
+    m_bCloseOnPark = false;
     m_bHomed = false;
     m_sFirmwareVersion.empty();
 
+    m_nNbRainSensors = 0;
+    
 #ifdef ACE_DEBUG
 #if defined(SB_WIN_BUILD)
     m_sLogfilePath = getenv("HOMEDRIVE");
@@ -237,6 +240,7 @@ int CACEDome::getDomeAz(double &dDomeAz)
     if(m_bCalibrating)
         return nErr;
 
+    dDomeAz = m_dCurrentAzPosition;
     nErr = getShortStatus(); // this timesout from time to time.
     if(nErr)
         return ACE_OK; // let's ignore the error and not change the data, they'll get pick up on the next request.
@@ -432,6 +436,7 @@ int CACEDome::isDomeMoving(bool &bIsMoving)
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
+    bIsMoving = true;
     nErr = getShortStatus(); // this timesout from time to time.
     if(nErr)
         return ACE_OK; // let's ignore the error and not change the data, they'll get pick up on the next request.
@@ -494,11 +499,11 @@ int CACEDome::isDomeAtHome(bool &bAtHome)
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
+    bAtHome = false;
     nErr = getShortStatus(); // this timesout from time to time.
     if(nErr)
         return ACE_OK; // let's ignore the error and not change the data, they'll get pick up on the next request.
 
-    bAtHome = false;
 
     if(m_svShortStatus.size()<1)
         return ACE_OK; // we got a weird response
@@ -557,6 +562,10 @@ int CACEDome::parkDome()
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
+    if(m_bCloseOnPark) {
+        m_bClosedDone = false;
+        nErr = closeShutter();
+    }
     // there is no park position so we set park = home
     nErr = goHome();
 
@@ -568,6 +577,8 @@ int CACEDome::unparkDome()
     m_bParked = false;
     // there is no park position so we set park = home and on unpark ask for the home position.
     m_dCurrentAzPosition = getHomeAz();
+    if(m_bOpenOnUnpark)
+        openShutter();
     return 0;
 }
 
@@ -594,13 +605,25 @@ int CACEDome::gotoAzimuth(double dNewAz)
 int CACEDome::openShutter()
 {
     int nErr = ACE_OK;
+    bool isRaining;
 
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
     if(m_bCalibrating)
         return SB_OK;
-
+    // is it raining ?
+    nErr = getRainState(isRaining);
+    if(isRaining) {
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+        ltime = time(NULL);
+        timestamp = asctime(localtime(&ltime));
+        timestamp[strlen(timestamp) - 1] = 0;
+        fprintf(Logfile, "[%s] [CACEDome::openShutter] It's raining... not opening \n", timestamp);
+        fflush(Logfile);
+#endif
+        return ERR_CMDFAILED;
+    }
     nErr = domeCommand("OP\r\n", NULL, SERIAL_BUFFER_SIZE);
     if(nErr)
         return nErr;
@@ -782,12 +805,22 @@ int CACEDome::isGoToComplete(bool &bComplete)
         }
     }
 
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CACEDome::isGoToComplete] bComplete = %s\n", timestamp, bComplete?"TRUE":"FALSE");
+    fflush(Logfile);
+#endif
+
     return nErr;
 }
 
 int CACEDome::isOpenComplete(bool &bComplete)
 {
     int nErr = 0;
+    bool isRaining;
+
     bComplete = false;
 
     if(!m_bIsConnected)
@@ -802,16 +835,24 @@ int CACEDome::isOpenComplete(bool &bComplete)
         return ERR_CMDFAILED;
 
     bComplete = false;
+    // is it raining ?
+    nErr = getRainState(isRaining);
 
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CACEDome::isOpenComplete] isRaining = %s\n", timestamp, isRaining?"Yes":"No");
     fprintf(Logfile, "[%s] [CACEDome::isOpenComplete] m_nCurrentShutterAction = %d\n", timestamp, m_nCurrentShutterAction);
     fprintf(Logfile, "[%s] [CACEDome::isOpenComplete] m_nShutterStateD1 = %d\n", timestamp, m_nShutterStateD1);
     fprintf(Logfile, "[%s] [CACEDome::isOpenComplete] m_nShutterStateD2 = %d\n", timestamp, m_nShutterStateD2);
     fflush(Logfile);
 #endif
+
+    if(isRaining)
+        return ERR_CMDFAILED;
+
+
 
     // which shutter are we opening ?
     if(m_nCurrentShutterAction == OPENING_D1 && m_nShutterStateD1 == OPEN) {
@@ -865,6 +906,14 @@ int CACEDome::isOpenComplete(bool &bComplete)
         bComplete = false;
         m_dCurrentElPosition = 0.0;
     }
+
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CACEDome::isOpenComplete] bComplete = %s\n", timestamp, bComplete?"TRUE":"FALSE");
+    fflush(Logfile);
+#endif
 
     return nErr;
 }
@@ -955,7 +1004,38 @@ int CACEDome::isCloseComplete(bool &bComplete)
 
 int CACEDome::isParkComplete(bool &bComplete)
 {
-    return(isFindHomeComplete(bComplete));
+    int nErr = ACE_OK;
+    bool bCloseComplete;
+    bool bHomed;
+
+    bHomed = false;
+    bCloseComplete = true;
+    if(m_bCloseOnPark) {
+        if(!m_bClosedDone) {
+            nErr |= isCloseComplete(bCloseComplete);
+            if(bCloseComplete) {
+                m_bClosedDone = true;
+                bCloseComplete = true;
+            }
+            else
+                bCloseComplete = false;
+        }
+        else
+            bCloseComplete = true;
+    }
+    nErr |= isFindHomeComplete(bHomed);
+
+    bComplete = bHomed & bCloseComplete;
+
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CACEDome::isParkComplete] bComplete = %s\n", timestamp, bComplete?"TRUE":"FALSE");
+    fflush(Logfile);
+#endif
+
+    return nErr;;
 }
 
 int CACEDome::isUnparkComplete(bool &bComplete)
@@ -964,11 +1044,19 @@ int CACEDome::isUnparkComplete(bool &bComplete)
 
     if(!m_bIsConnected)
         return NOT_CONNECTED;
-
-    bComplete = false;
-
-    if(!m_bParked)
+    if(m_bOpenOnUnpark) {
+       nErr = isOpenComplete(bComplete);
+    }
+    else if(!m_bParked)
         bComplete = true;
+
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CACEDome::isUnparkComplete] bComplete = %s\n", timestamp, bComplete?"TRUE":"FALSE");
+    fflush(Logfile);
+#endif
 
     return nErr;
 }
@@ -1042,6 +1130,14 @@ int CACEDome::isFindHomeComplete(bool &bComplete)
         }
     }
 
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CACEDome::isFindHomeComplete] bComplete = %s\n", timestamp, bComplete?"TRUE":"FALSE");
+    fflush(Logfile);
+#endif
+
     return nErr;
 }
 
@@ -1070,6 +1166,14 @@ int CACEDome::isCalibratingComplete(bool &bComplete)
         bComplete = false;
         m_bCalibrating = false;
     }
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CACEDome::isCalibratingComplete] bComplete = %s\n", timestamp, bComplete?"TRUE":"FALSE");
+    fflush(Logfile);
+#endif
+
     return nErr;
 }
 
@@ -1283,6 +1387,96 @@ int CACEDome::setRainShutdown(bool bEnabled)
     return nErr;
 }
 
+int CACEDome::setNbRainSensors(int nNbSensors)
+
+{
+    int nErr = ACE_OK;
+    char szBuf[SERIAL_BUFFER_SIZE];
+
+    if(!m_bIsConnected)
+        return NOT_CONNECTED;
+
+    snprintf(szBuf, SERIAL_BUFFER_SIZE, "%d RS\r\n", nNbSensors);
+    nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
+    if(!nErr)
+        m_nNbRainSensors = nNbSensors;
+
+    return nErr;
+
+}
+
+int CACEDome::getNbRainSensors(int &nNbSensors)
+{
+    int nErr = ACE_OK;
+    std::string sLine;
+    std::vector<std::string> svFields;
+
+    if(!m_bIsConnected)
+        return NOT_CONNECTED;
+
+    nErr = getExtendedStatus();
+    if(nErr)
+        return nErr;
+
+    // need to parse to find the Encoder Counts per 360 field.
+    sLine = findField(m_svExtStatus, "Rain sensors");
+    if(!sLine.empty()) {
+        parseFields(sLine.c_str(), svFields, ':');
+        if(svFields.size()>1) {
+            nNbSensors=atoi(trim(svFields[1]," ").c_str());
+        }
+        else
+            nNbSensors = 0;
+        m_nNbRainSensors = nNbSensors;
+    }
+    return nErr;
+
+}
+
+int CACEDome::getRainState(bool &isRaining)
+{
+    int nErr;
+    std::string sStatus;
+    std::vector<std::string> svStatusLineFields;
+
+    if(!m_bIsConnected)
+        return NOT_CONNECTED;
+
+    isRaining = false;
+    nErr = getShortStatus(); // this timesout from time to time.
+    if(nErr)
+        return ACE_OK; // let's ignore the error and not change the data, they'll get pick up on the next request.
+
+    if(m_svShortStatus.size()<3)
+        return ACE_OK; // we got a weird response
+
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CACEDome::getRainState] m_svShortStatus.size() =  %lu\n", timestamp, m_svShortStatus.size());
+    fflush(Logfile);
+#endif
+
+    // look for [ON] RAIN as we don't want to report that it's raining oif rain shutdown is not ON.
+    sStatus = findField(m_svShortStatus, "RAIN");
+    if(sStatus.size()) {
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+        ltime = time(NULL);
+        timestamp = asctime(localtime(&ltime));
+        timestamp[strlen(timestamp) - 1] = 0;
+        fprintf(Logfile, "[%s] [CACEDome::getRainState] sStatus =  %s\n", timestamp, sStatus.c_str());
+        fflush(Logfile);
+#endif
+
+        if(sStatus.find("ON")!= -1) {
+            isRaining = true;
+        }
+    }
+    return nErr;
+}
+
+
 void CACEDome::getDropoutDisabled(bool &bDisabled)
 {
     bDisabled = m_bDropoutDisabled;
@@ -1354,6 +1548,26 @@ int CACEDome::setDomeAzCoast(double dAz)
     m_dCoastAz = dAz;
     return nErr;
 
+}
+
+void CACEDome::setCloseOnPark(bool bEnabled)
+{
+    m_bCloseOnPark  = bEnabled;
+}
+
+void CACEDome::getCloseOnPark(bool &bEnabled)
+{
+    bEnabled = m_bCloseOnPark;
+}
+
+void CACEDome::setOpenOnUnpark(bool bEnabled)
+{
+    m_bOpenOnUnpark = bEnabled;
+}
+
+void CACEDome::getOpenOnUnpark(bool &bEnabled)
+{
+    bEnabled = m_bOpenOnUnpark;
 }
 
 
