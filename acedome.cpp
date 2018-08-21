@@ -156,10 +156,17 @@ int CACEDome::readResponse(char *pszRespBuffer, int nBufferLen)
 
     do {
         m_pSerx->bytesWaitingRx(nBytesWaiting);
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+        ltime = time(NULL);
+        timestamp = asctime(localtime(&ltime));
+        timestamp[strlen(timestamp) - 1] = 0;
+        fprintf(Logfile, "[%s] [CACEDome::readResponse] nBytesWaiting = %d\n", timestamp, nBytesWaiting);
+        fflush(Logfile);
+#endif
         if(!nBytesWaiting) {
             usleep(MAX_TIMEOUT*1000);
             nbTimeouts++;
-            if(nbTimeouts > NB_RX_WAIT) {
+            if(nbTimeouts >= NB_RX_WAIT) {
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
                 ltime = time(NULL);
                 timestamp = asctime(localtime(&ltime));
@@ -171,6 +178,7 @@ int CACEDome::readResponse(char *pszRespBuffer, int nBufferLen)
             }
             continue;
         }
+        nbTimeouts = 0;
         // nErr = m_pSerx->readFile(pszBufPtr, 1, ulBytesRead, MAX_TIMEOUT);
         nErr = m_pSerx->readFile(pszBufPtr, nBytesWaiting, ulBytesRead, MAX_TIMEOUT);
         if(nErr) {
