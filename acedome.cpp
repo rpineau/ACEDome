@@ -17,8 +17,6 @@
 CACEDome::CACEDome()
 {
     // set some sane values
-    m_bDebugLog = true;
-    
     m_pSerx = NULL;
     m_bIsConnected = false;
 
@@ -164,9 +162,8 @@ int CACEDome::readResponse(char *pszRespBuffer, int nBufferLen)
         fflush(Logfile);
 #endif
         if(!nBytesWaiting) {
-            usleep(MAX_TIMEOUT*1000);
-            nbTimeouts++;
-            if(nbTimeouts >= NB_RX_WAIT) {
+            m_pSleeper->sleep(MAX_TIMEOUT);
+            if(nbTimeouts++ >= NB_RX_WAIT) {
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
                 ltime = time(NULL);
                 timestamp = asctime(localtime(&ltime));
@@ -450,10 +447,6 @@ int CACEDome::setDomeStepPerRev(int nStepPerRev)
     return nErr;
 }
 
-void CACEDome::setDebugLog(bool bEnable)
-{
-    m_bDebugLog = bEnable;
-}
 
 int CACEDome::isDomeMoving(bool &bIsMoving)
 {
@@ -605,7 +598,7 @@ int CACEDome::unparkDome()
 {
     m_bParked = false;
     // there is no park position so we set park = home and on unpark ask for the home position.
-    m_dCurrentAzPosition = getHomeAz();
+    getDomeAz(m_dCurrentAzPosition);
     if(m_bOpenOnUnpark)
         openShutter();
     return 0;
@@ -1136,15 +1129,13 @@ int CACEDome::isFindHomeComplete(bool &bComplete)
         }
         else {
             // we're not moving and we're not at the home position !!!
-            if (m_bDebugLog) {
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
-                ltime = time(NULL);
-                timestamp = asctime(localtime(&ltime));
-                timestamp[strlen(timestamp) - 1] = 0;
-                fprintf(Logfile, "[%s] [CACEDome::isFindHomeComplete] Not moving and not at home !!!\n", timestamp);
-                fflush(Logfile);
+            ltime = time(NULL);
+            timestamp = asctime(localtime(&ltime));
+            timestamp[strlen(timestamp) - 1] = 0;
+            fprintf(Logfile, "[%s] [CACEDome::isFindHomeComplete] Not moving and not at home !!!\n", timestamp);
+            fflush(Logfile);
 #endif
-            }
             if(m_nHomingTries == 0) {
                 bComplete = false;
                 m_nHomingTries = 1;
@@ -1221,21 +1212,6 @@ int CACEDome::abortCurrentCommand()
 
 #pragma mark - Getter / Setter
 
-int CACEDome::getNbTicksPerRev()
-{
-    if(m_bIsConnected)
-        getDomeStepPerRev(m_nNbStepPerRev);
-    return m_nNbStepPerRev;
-}
-
-int CACEDome::setNbTicksPerRev(int nTicks)
-{
-    int nErr = ACE_OK;
-    if(m_bIsConnected)
-        nErr = setDomeStepPerRev(nTicks);
-    return nErr;
-}
-
 int CACEDome::getWatchdogResetTimer()
 {
     int nErr = ACE_OK;
@@ -1280,14 +1256,6 @@ int CACEDome::setWatchdogResetTimer(int nSeconds)
 }
 
 
-double CACEDome::getHomeAz()
-{
-    if(m_bIsConnected)
-        getDomeHomeAz(m_dHomeAz);
-
-    return m_dHomeAz;
-}
-
 int CACEDome::setHomeAz(double dAz)
 {
     int nErr = ACE_OK;
@@ -1303,24 +1271,6 @@ int CACEDome::setHomeAz(double dAz)
 
     m_dHomeAz = dAz;
     return nErr;
-}
-
-
-
-double CACEDome::getCurrentAz()
-{
-    if(m_bIsConnected)
-        getDomeAz(m_dCurrentAzPosition);
-    
-    return m_dCurrentAzPosition;
-}
-
-double CACEDome::getCurrentEl()
-{
-    if(m_bIsConnected)
-        getDomeEl(m_dCurrentElPosition);
-    
-    return m_dCurrentElPosition;
 }
 
 

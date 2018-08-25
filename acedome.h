@@ -18,6 +18,7 @@
 #include "../../licensedinterfaces/sberrorx.h"
 #include "../../licensedinterfaces/serxinterface.h"
 #include "../../licensedinterfaces/loggerinterface.h"
+#include "../../licensedinterfaces/sleeperinterface.h"
 
 #define ACE_DEBUG 2
 
@@ -41,7 +42,8 @@ public:
     bool    IsConnected(void) { return m_bIsConnected; }
 
     void    SetSerxPointer(SerXInterface *p) { m_pSerx = p; }
-    void    setLogger(LoggerInterface *pLogger) { m_pLogger = pLogger; };
+    void    setLogger(LoggerInterface *pLogger) { m_pLogger = pLogger; }
+    void    setSleeper(SleeperInterface *pSleeper) { m_pSleeper = pSleeper; }
 
     // Dome commands
     int syncDome(double dAz, double dEl);
@@ -66,16 +68,17 @@ public:
     int abortCurrentCommand();
 
     // getter/setter
-    int getNbTicksPerRev();
-    int setNbTicksPerRev(int nTicks);
+    int getDomeStepPerRev(int &nStepPerRev);
+    int setDomeStepPerRev(int nStepPerRev);
+
     int getWatchdogResetTimer();
     int setWatchdogResetTimer(int nSeconds);
     
-    double getHomeAz();
-    int setHomeAz(double dAz);
+    int getDomeAz(double &dDomeAz);
+    int getDomeEl(double &dDomeEl);
 
-    double getCurrentAz();
-    double getCurrentEl();
+    int setHomeAz(double dAz);
+    int getDomeHomeAz(double &dAz);
 
     int getAutoShutdown(bool &bEnabled);
     int setAutoShutdown(bool bEnabled);
@@ -106,21 +109,17 @@ public:
 
 protected:
     
+    int             domeCommand(const char *pszCmd, char *pszResult, int nResultMaxLen);
     int             readResponse(char *pszRespBuffer, int bufferLen);
-    int             getDomeAz(double &dDomeAz);
-    int             getDomeEl(double &dDomeEl);
-    int             getDomeHomeAz(double &dAz);
-    int             getDomeParkAz(double &dAz);
-    int             getShutterState();
-    int             getDomeStepPerRev(int &nStepPerRev);
-    int             setDomeStepPerRev(int nStepPerRev);
 
+    int             getShutterState();
+    int             getDomeParkAz(double &dAz);
     int             isDomeMoving(bool &bIsMoving);
     int             isDomeAtHome(bool &bAtHome);
 
-    int             domeCommand(const char *pszCmd, char *pszResult, int nResultMaxLen);
     int             getExtendedStatus();
     int             getShortStatus();
+
     int             parseFields(const char *pszResp, std::vector<std::string> &svFields, char cSeparator);
     std::string&    trim(std::string &str, const std::string &filter );
     std::string&    ltrim(std::string &str, const std::string &filter);
@@ -128,8 +127,8 @@ protected:
     std::string     findField(std::vector<std::string> &svFields, const std::string& token);
 
     LoggerInterface *m_pLogger;
-    bool            m_bDebugLog;
-    
+    SleeperInterface    *m_pSleeper;
+
     bool            m_bIsConnected;
     bool            m_bHomed;
     bool            m_bHomePassed;

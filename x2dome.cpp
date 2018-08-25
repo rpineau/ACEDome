@@ -39,6 +39,7 @@ X2Dome::X2Dome(const char* pszSelection,
     
     m_ACEDome.SetSerxPointer(pSerX);
     m_ACEDome.setLogger(pLogger);
+    m_ACEDome.setSleeper(pSleeper);
 
     if (m_pIniUtil)
     {   
@@ -160,9 +161,11 @@ int X2Dome::execModalSettingsDialog()
     // set controls state depending on the connection state
     if(m_bLinked) {
         // home position
-        dx->setPropertyDouble("homePosition","value", m_ACEDome.getHomeAz());
+        m_ACEDome.getDomeHomeAz(dHomeAz);
+        dx->setPropertyDouble("homePosition","value", dHomeAz);
         // ticks per rev
-        dx->setPropertyInt("ticksPerRev","value", m_ACEDome.getNbTicksPerRev());
+        m_ACEDome.getDomeStepPerRev(nTicks);
+        dx->setPropertyInt("ticksPerRev","value", nTicks);
         dx->setEnabled("pushButton",true);
         //Az Coast
         m_ACEDome.getDomeAzCoast(dAzimuthCoast);
@@ -230,7 +233,7 @@ int X2Dome::execModalSettingsDialog()
         {
             m_ACEDome.setHomeAz(dHomeAz);
             // set ticks
-            m_ACEDome.setNbTicksPerRev(nTicks);
+            m_ACEDome.setDomeStepPerRev(nTicks);
             // set Azimuth Coasr
             m_ACEDome.setDomeAzCoast(dAzimuthCoast);
             // set watchdog
@@ -263,6 +266,7 @@ void X2Dome::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
     int nErr;
     char szTmpBuf[SERIAL_BUFFER_SIZE];
     char szErrorMessage[SERIAL_BUFFER_SIZE];
+    int nTicks;
 
     if (!strcmp(pszEvent, "on_pushButtonCancel_clicked"))
         m_ACEDome.abortCurrentCommand();
@@ -291,7 +295,8 @@ void X2Dome::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
                 uiex->setEnabled("pushButton",true);
                 uiex->setEnabled("pushButtonOK",true);
                 // read step per rev from dome
-                snprintf(szTmpBuf,16,"%d",m_ACEDome.getNbTicksPerRev());
+                m_ACEDome.getDomeStepPerRev(nTicks);
+                snprintf(szTmpBuf,16,"%d", nTicks);
                 uiex->setPropertyString("ticksPerRev","text", szTmpBuf);
                 m_bCalibratingDome = false;
                 
@@ -373,13 +378,18 @@ double	X2Dome::driverInfoVersion(void) const
 
 int X2Dome::dapiGetAzEl(double* pdAz, double* pdEl)
 {
+    int nErr = SB_OK;
     X2MutexLocker ml(GetMutex());
 
     if(!m_bLinked)
         return ERR_NOLINK;
 
-    *pdAz = m_ACEDome.getCurrentAz();
-    *pdEl = m_ACEDome.getCurrentEl();
+    nErr = m_ACEDome.getDomeAz(*pdAz);
+    if(nErr)
+        return nErr;
+    nErr = m_ACEDome.getDomeEl(*pdEl);
+    if(nErr)
+        return nErr;
     return SB_OK;
 }
 
