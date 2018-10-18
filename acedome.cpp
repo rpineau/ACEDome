@@ -1,8 +1,8 @@
 //
 //  ACEdome.cpp
-//  ACE rotation drive unit for Pulsar Dome X2 plugin
+//  ACE rotation drive unit
 //
-//  Created by Rodolphe Pineau on 6/11/2016.
+//  Created by Rodolphe Pineau on 6/11/2018.
 
 
 #include "acedome.h"
