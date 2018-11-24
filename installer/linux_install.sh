@@ -6,9 +6,7 @@ echo "TheSkyX_Install = $TheSkyX_Install"
 if [ ! -f "$TheSkyX_Install" ]; then
     echo TheSkyXInstallPath.txt not found
     TheSkyX_Path=`/usr/bin/find ~/ -maxdepth 3 -name TheSkyX`
-    if [ -d "$TheSkyX_Path" ]; then
-		TheSkyX_Path="${TheSkyX_Path}/Contents"
-    else
+    if [ ! -d "$TheSkyX_Path" ]; then
 	   echo TheSkyX application was not found.
     	exit 1
 	 fi
@@ -24,17 +22,23 @@ if [ ! -d "$TheSkyX_Path" ]; then
     exit 1
 fi
 
+if [ -d "$TheSkyX_Path/Resources/Common/PlugIns64" ]; then
+	PLUGINS_DIR="PlugIns64"
+else
+	PLUGINS_DIR="PlugIns"
+fi
+
 cp "./domelist ACEDome.txt" "$TheSkyX_Path/Resources/Common/Miscellaneous Files/"
-cp "./ACEDome.ui" "$TheSkyX_Path/Resources/Common/PlugIns/DomePlugIns/"
-cp "./ACE.png" "$TheSkyX_Path/Resources/Common/PlugIns/DomePlugIns/"
-cp "./libACEDome.so" "$TheSkyX_Path/Resources/Common/PlugIns/DomePlugIns/"
+cp "./ACEDome.ui" "$TheSkyX_Path/Resources/Common/$PLUGINS_DIR/DomePlugIns/"
+cp "./ACE.png" "$TheSkyX_Path/Resources/Common/$PLUGINS_DIR/DomePlugIns/"
+cp "./libACEDome.so" "$TheSkyX_Path/Resources/Common/$PLUGINS_DIR/DomePlugIns/"
 
 app_owner=`/usr/bin/stat -c "%u" "$TheSkyX_Path" | xargs id -n -u`
 if [ ! -z "$app_owner" ]; then
 	chown $app_owner "$TheSkyX_Path/Resources/Common/Miscellaneous Files/domelist ACEDome.txt"
-	chown $app_owner "$TheSkyX_Path/Resources/Common/PlugIns/DomePlugIns/ACEDome.ui"
-	chown $app_owner "$TheSkyX_Path/Resources/Common/PlugIns/DomePlugIns/ACE.png"
-	chown $app_owner "$TheSkyX_Path/Resources/Common/PlugIns/DomePlugIns/libACEDome.so"
+	chown $app_owner "$TheSkyX_Path/Resources/Common/$PLUGINS_DIR/DomePlugIns/ACEDome.ui"
+	chown $app_owner "$TheSkyX_Path/Resources/Common/$PLUGINS_DIR/DomePlugIns/ACE.png"
+	chown $app_owner "$TheSkyX_Path/Resources/Common/$PLUGINS_DIR/DomePlugIns/libACEDome.so"
 fi
-chmod  755 "$TheSkyX_Path/Resources/Common/PlugIns/DomePlugIns/libACEDome.so"
+chmod  755 "$TheSkyX_Path/Resources/Common/$PLUGINS_DIR/DomePlugIns/libACEDome.so"
 
