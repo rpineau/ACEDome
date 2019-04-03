@@ -676,8 +676,6 @@ int CACEDome::closeShutter()
     if(nErr)
         return nErr;
 
-    m_nCurrentShutterAction = CLOSING_D2;
-
     return nErr;
 }
 
