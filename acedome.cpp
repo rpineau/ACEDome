@@ -1165,32 +1165,33 @@ int CACEDome::isFindHomeComplete(bool &bComplete)
 int CACEDome::isCalibratingComplete(bool &bComplete)
 {
     int nErr = 0;
-
+    bool bIsMoving;
     bComplete = false;
+    int nTmp;
 
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
-    nErr = getExtendedStatus();
-    if(nErr)
+    bIsMoving = true;
+    nErr = isDomeMoving(bIsMoving);
+    if(nErr) {
         return nErr;
+    }
 
-    if(m_nMotorState == 0) { // FIXME
+    if(bIsMoving)
         bComplete = false;
-    }
-    else if (m_nMotorState == 1){ // FIXME
+    else    // no longer moving so we're done calibrating
         bComplete = true;
-    }
-    else {
-        // probably still moving
-        bComplete = false;
-        m_bCalibrating = false;
-    }
+
+    if(bComplete)
+        nErr = getDomeStepPerRev(nTmp);
+
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
     fprintf(Logfile, "[%s] [CACEDome::isCalibratingComplete] bComplete = %s\n", timestamp, bComplete?"TRUE":"FALSE");
+    fprintf(Logfile, "[%s] [CACEDome::isCalibratingComplete] m_nNbStepPerRev = %d\n", timestamp, m_nNbStepPerRev);
     fflush(Logfile);
 #endif
 
