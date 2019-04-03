@@ -158,8 +158,6 @@ protected:
     int             m_nShutterStateD1, m_nShutterStateD2;
     bool            m_bShutterOpened;
 
-    int             m_nMotorState;
-
     int             m_nNbRainSensors;
 
     std::vector<std::string>    m_svShortStatus;
