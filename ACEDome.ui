@@ -219,12 +219,12 @@
          <rect>
           <x>8</x>
           <y>152</y>
-          <width>120</width>
+          <width>256</width>
           <height>24</height>
          </rect>
         </property>
         <property name="text">
-         <string>Disable Dropout</string>
+         <string>Disable Dropout (for single shutter)</string>
         </property>
        </widget>
        <widget class="QLabel" name="label_6">
