@@ -267,6 +267,15 @@ int CACEDome::getDomeAz(double &dDomeAz)
         return nErr;
 
     dDomeAz = m_dCurrentAzPosition;
+
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CACEDome::getDomeAz] m_dCurrentAzPosition : %3.2f\n", timestamp, m_dCurrentAzPosition);
+    fflush(Logfile);
+#endif
+
     nErr = getShortStatus(); // this timesout from time to time.
     if(nErr)
         return ACE_OK; // let's ignore the error and not change the data, they'll get pick up on the next request.
@@ -275,20 +284,55 @@ int CACEDome::getDomeAz(double &dDomeAz)
     sHeading = findField(m_svShortStatus, "Home");
     if(!sHeading.size()) {
         sHeading = findField(m_svShortStatus, "Posn");
-        if(!sHeading.size())
+        if(!sHeading.size()) {
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+            ltime = time(NULL);
+            timestamp = asctime(localtime(&ltime));
+            timestamp[strlen(timestamp) - 1] = 0;
+            fprintf(Logfile, "[%s] [CACEDome::getDomeAz] Home or  Posn not found in fields !!! \n", timestamp);
+            fflush(Logfile);
+#endif
             return nErr;
+        }
     }
 
     // convert Az string to double
     if(sHeading.size()) {
         nErr = parseFields(sHeading.c_str(), svPosition, ' ');
-        if(nErr)
+        if(nErr) {
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+            ltime = time(NULL);
+            timestamp = asctime(localtime(&ltime));
+            timestamp[strlen(timestamp) - 1] = 0;
+            fprintf(Logfile, "[%s] [CACEDome::getDomeAz] parseFields for '%s' failed !!! \n", timestamp, sHeading.c_str());
+            fflush(Logfile);
+#endif
             return nErr;
+        }
         if(svPosition.size()>1) {
             dDomeAz = atof(svPosition[1].c_str());
             m_dCurrentAzPosition = dDomeAz;
         }
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+        else
+        {
+            ltime = time(NULL);
+            timestamp = asctime(localtime(&ltime));
+            timestamp[strlen(timestamp) - 1] = 0;
+            fprintf(Logfile, "[%s] [CACEDome::getDomeAz] svPosition.size is toos small : %d\n", timestamp, int(svPosition.size()));
+            fflush(Logfile);
+            return nErr;
+        }
+#endif
     }
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CACEDome::getDomeAz] m_dCurrentAzPosition : %3.2f\n", timestamp, m_dCurrentAzPosition);
+    fflush(Logfile);
+#endif
+
     return nErr;
 }
 
@@ -1181,9 +1225,10 @@ int CACEDome::isCalibratingComplete(bool &bComplete)
     else    // no longer moving so we're done calibrating
         bComplete = true;
 
-    if(bComplete)
+    if(bComplete) {
         nErr = getDomeStepPerRev(nTmp);
-
+        gotoAzimuth(m_dHomeAz); // this should be a very small move as calibration end at home
+    }
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
