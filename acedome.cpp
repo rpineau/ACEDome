@@ -310,7 +310,7 @@ int CACEDome::getDomeAz(double &dDomeAz)
             return nErr;
         }
         if(svPosition.size()>1) {
-            dDomeAz = atof(svPosition[1].c_str());
+            dDomeAz = fmod(atof(svPosition[1].c_str()), 360.0f);    // the modulo is just to be safe
             m_dCurrentAzPosition = dDomeAz;
         }
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
