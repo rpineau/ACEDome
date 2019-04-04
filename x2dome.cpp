@@ -264,7 +264,6 @@ void X2Dome::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 {
     bool bComplete = false;
     int nErr;
-    char szTmpBuf[SERIAL_BUFFER_SIZE];
     char szErrorMessage[SERIAL_BUFFER_SIZE];
     int nTicks;
 
@@ -296,8 +295,7 @@ void X2Dome::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
                 uiex->setEnabled("pushButtonOK",true);
                 // read step per rev from dome
                 m_ACEDome.getDomeStepPerRev(nTicks);
-                snprintf(szTmpBuf,16,"%d", nTicks);
-                uiex->setPropertyString("ticksPerRev","text", szTmpBuf);
+                uiex->setPropertyInt("ticksPerRev","value", nTicks);
                 m_bCalibratingDome = false;
                 
             }
