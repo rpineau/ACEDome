@@ -58,7 +58,7 @@ CACEDome::CACEDome()
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] CACEDome::CACEDome()  Version 2019_04_04_1345.\n", timestamp);
+    fprintf(Logfile, "[%s] CACEDome::CACEDome()  Version 2019_04_04_2025.\n", timestamp);
     fprintf(Logfile, "[%s] CACEDome::CACEDome() Called\n", timestamp);
     fflush(Logfile);
 #endif
@@ -267,10 +267,10 @@ int CACEDome::getDomeAz(double &dDomeAz)
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
+    dDomeAz = m_dCurrentAzPosition;
+
     if(m_bCalibrating)
         return nErr;
-
-    dDomeAz = m_dCurrentAzPosition;
 
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
     ltime = time(NULL);
@@ -280,7 +280,7 @@ int CACEDome::getDomeAz(double &dDomeAz)
     fflush(Logfile);
 #endif
 
-    nErr = getShortStatus(); // this timesout from time to time.
+    nErr = getShortStatus(); // this timeout from time to time.
     if(nErr)
         return ACE_OK; // let's ignore the error and not change the data, they'll get pick up on the next request.
 
@@ -314,7 +314,7 @@ int CACEDome::getDomeAz(double &dDomeAz)
             return nErr;
         }
         if(svPosition.size()>1) {
-            dDomeAz = fmod(atof(svPosition[1].c_str()), 360.0f);    // the modulo is just to be safe
+            dDomeAz = fabs(fmod(atof(svPosition[1].c_str()), 360.0f));    // the modulo is just to be safe
             m_dCurrentAzPosition = dDomeAz;
         }
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
@@ -1234,6 +1234,7 @@ int CACEDome::isCalibratingComplete(bool &bComplete)
         bComplete = true;
 
     if(bComplete) {
+        m_bCalibrating = false;
         nErr = getDomeStepPerRev(nTmp);
         goHome(); // this should be a very small move as calibration end at home
         while(true) {
