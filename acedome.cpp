@@ -58,6 +58,7 @@ CACEDome::CACEDome()
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] CACEDome::CACEDome()  Version 2019_04_04_1345.\n", timestamp);
     fprintf(Logfile, "[%s] CACEDome::CACEDome() Called\n", timestamp);
     fflush(Logfile);
 #endif
@@ -126,6 +127,9 @@ int CACEDome::Connect(const char *pszPort)
     nErr = getShutterState();
     setDecimalFormat(2); // 2 decimals for degrees.
     getDomeAzCoast(m_dCoastAz);
+    getDomeHomeAz(m_dHomeAz);
+    getDomeStepPerRev(m_nNbStepPerRev);
+    getDomeHomeAz(m_dCurrentAzPosition);
     return SB_OK;
 }
 
@@ -595,7 +599,7 @@ int CACEDome::isDomeAtHome(bool &bAtHome)
         if(nErr)
             return nErr;
         if(svPosition.size()>1) {
-            m_dCurrentAzPosition = atof(svPosition[1].c_str());
+            m_dCurrentAzPosition = fmod(atof(svPosition[1].c_str()), 360.0f);
         }
     }
 
@@ -617,7 +621,7 @@ int CACEDome::syncDome(double dAz, double dEl)
     if(nErr)
         return nErr;
 
-    m_dCurrentAzPosition = dAz;
+    m_dCurrentAzPosition = fmod(dAz , 360.0f);
     return nErr;
 }
 
@@ -657,6 +661,7 @@ int CACEDome::gotoAzimuth(double dNewAz)
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
+    dNewAz = fabs(dNewAz); // should solve the -0.00
     snprintf(szBuf, SERIAL_BUFFER_SIZE, "%3.2f MV\r\n", dNewAz);
     nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
     if(nErr)
@@ -1209,6 +1214,9 @@ int CACEDome::isCalibratingComplete(bool &bComplete)
     int nErr = 0;
     bool bIsMoving;
     bComplete = false;
+    int timeout = 0;
+    bool bIsAtHome = true;
+
     int nTmp;
 
     if(!m_bIsConnected)
@@ -1227,7 +1235,19 @@ int CACEDome::isCalibratingComplete(bool &bComplete)
 
     if(bComplete) {
         nErr = getDomeStepPerRev(nTmp);
-        gotoAzimuth(m_dHomeAz); // this should be a very small move as calibration end at home
+        goHome(); // this should be a very small move as calibration end at home
+        while(true) {
+            isDomeAtHome(bIsAtHome);
+            if(bIsAtHome)
+                break;
+            else {
+                m_pSleeper->sleep(1000);
+                timeout++;
+                if(timeout>10) // 10 seconds should be enough
+                    break;
+            }
+
+        }
     }
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
     ltime = time(NULL);
