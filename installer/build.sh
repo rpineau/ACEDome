@@ -1,13 +1,18 @@
 #!/bin/bash
 
+PACKAGE_NAME="ACEDome_X2.pkg"
+BUNDLE_NAME="org.rti-zone.ACEDomeX2"
+
+if [ ! -z "$app_id_signature" ]; then
+    codesign -f -s "$app_id_signature" --verbose ../build/Release/libACEDome.dylib
+fi
+
 mkdir -p ROOT/tmp/ACEDome_X2/
 cp "../ACEDome.ui" ROOT/tmp/ACEDome_X2/
 cp "../ACE.png" ROOT/tmp/ACEDome_X2/
 cp "../domelist ACEDome.txt" ROOT/tmp/ACEDome_X2/
 cp "../build/Release/libACEDome.dylib" ROOT/tmp/ACEDome_X2/
 
-PACKAGE_NAME="ACEDome_X2.pkg"
-BUNDLE_NAME="org.rti-zone.ACEDomeX2"
 
 if [ ! -z "$installer_signature" ]; then
 	# signed package using env variable installer_signature
