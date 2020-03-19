@@ -29,10 +29,16 @@ echo "Installing in $PLUGINS_DIR/DomePlugIns/"
 
 cp "/tmp/ACEDome_X2/domelist ACEDome.txt" "$TheSkyX_Path/Resources/Common/Miscellaneous Files/"
 if [ "$?" -ne "0" ]; then exit 1; fi
+
+rm -f "$PLUGINS_DIR/DomePlugIns/ACEDome.ui"
 cp "/tmp/ACEDome_X2/ACEDome.ui" "$PLUGINS_DIR/DomePlugIns/"
 if [ "$?" -ne "0" ]; then exit 1; fi
+
+rm -f "$PLUGINS_DIR/DomePlugIns/ACE.png"
 cp "/tmp/ACEDome_X2/ACE.png" "$PLUGINS_DIR/DomePlugIns/"
 if [ "$?" -ne "0" ]; then exit 1; fi
+
+rm -f "$PLUGINS_DIR/DomePlugIns/libACEDome.dylib"
 cp "/tmp/ACEDome_X2/libACEDome.dylib" "$PLUGINS_DIR/DomePlugIns/"
 if [ "$?" -ne "0" ]; then exit 1; fi
 
