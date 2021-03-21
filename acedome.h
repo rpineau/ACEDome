@@ -20,7 +20,9 @@
 #include "../../licensedinterfaces/loggerinterface.h"
 #include "../../licensedinterfaces/sleeperinterface.h"
 
-// #define ACE_DEBUG 2
+#define ACE_DEBUG 2
+
+#define DRIVER_VERSION      1.1
 
 #define SERIAL_BUFFER_SIZE 2048
 #define MAX_TIMEOUT 250

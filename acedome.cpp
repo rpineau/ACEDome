@@ -58,7 +58,7 @@ CACEDome::CACEDome()
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] CACEDome::CACEDome()  Version 2019_04_04_2025.\n", timestamp);
+    fprintf(Logfile, "[%s] CACEDome::CACEDome()  Version 2020_12_16_2315.\n", timestamp);
     fprintf(Logfile, "[%s] CACEDome::CACEDome() Called\n", timestamp);
     fflush(Logfile);
 #endif
@@ -1502,7 +1502,7 @@ int CACEDome::getRainState(bool &isRaining)
     fflush(Logfile);
 #endif
 
-    // look for [ON] RAIN as we don't want to report that it's raining oif rain shutdown is not ON.
+    // look for [ON] RAIN as we don't want to report that it's raining if rain shutdown is not ON.
     sStatus = findField(m_svShortStatus, "RAIN");
     if(sStatus.size()) {
 #if defined ACE_DEBUG && ACE_DEBUG >= 2

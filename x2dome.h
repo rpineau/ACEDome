@@ -14,8 +14,6 @@ class MutexInterface;
 class BasicIniUtilInterface;
 class TickCountInterface;
 
-#define DRIVER_VERSION      1.1
-
 #define PARENT_KEY			"ACEDome"
 #define CHILD_KEY_PORTNAME	"PortName"
 #define CHILD_KEY_AUTOSHUTDOWN "AutoShutdown"
