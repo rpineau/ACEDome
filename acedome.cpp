@@ -175,13 +175,18 @@ int CACEDome::readResponse(char *pszRespBuffer, int nBufferLen)
                 fprintf(Logfile, "[%s] [CACEDome::readResponse] bytesWaitingRx timeout, no data for %d loops\n", timestamp, NB_RX_WAIT);
                 fflush(Logfile);
 #endif
+                nErr = ERR_RXTIMEOUT;
                 break;
             }
             continue;
         }
         nbTimeouts = 0;
-        // nErr = m_pSerx->readFile(pszBufPtr, 1, ulBytesRead, MAX_TIMEOUT);
-        nErr = m_pSerx->readFile(pszBufPtr, nBytesWaiting, ulBytesRead, MAX_TIMEOUT);
+        if(ulTotalBytesRead + nBytesWaiting <= nBufferLen)
+            nErr = m_pSerx->readFile(pszBufPtr, nBytesWaiting, ulBytesRead, MAX_TIMEOUT);
+        else {
+            nErr = ERR_RXTIMEOUT;
+            break; // buffer is full.. there is a problem !!
+        }
         if(nErr) {
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
             ltime = time(NULL);
@@ -198,10 +203,9 @@ int CACEDome::readResponse(char *pszRespBuffer, int nBufferLen)
             ltime = time(NULL);
             timestamp = asctime(localtime(&ltime));
             timestamp[strlen(timestamp) - 1] = 0;
-            fprintf(Logfile, "[%s] [CACEDome::readResponse] readFile Timeout, end of data. nErr = %d\n", timestamp, nErr);
+            fprintf(Logfile, "[%s] [CACEDome::readResponse] readFile error ulBytesRead != nBytesWaiting , nErr = %d\n", timestamp, nErr);
             fflush(Logfile);
 #endif
-            break;
         }
 
         ulTotalBytesRead += ulBytesRead;
