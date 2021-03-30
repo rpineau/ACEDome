@@ -22,11 +22,11 @@
 
 // #define ACE_DEBUG 2
 
-#define DRIVER_VERSION      1.2
+#define DRIVER_VERSION      1.3
 
 #define SERIAL_BUFFER_SIZE 2048
-#define MAX_TIMEOUT 250
-#define NB_RX_WAIT 2
+#define MAX_TIMEOUT 25
+#define NB_RX_WAIT 20
 
 // error codes
 // Error code
