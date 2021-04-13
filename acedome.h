@@ -22,11 +22,13 @@
 
 // #define ACE_DEBUG 2
 
-#define DRIVER_VERSION      1.3
+#define DRIVER_VERSION      1.4
 
 #define SERIAL_BUFFER_SIZE 2048
-#define MAX_TIMEOUT 25
-#define NB_RX_WAIT 20
+#define MAX_TIMEOUT 500
+#define MAX_READ_WAIT_TIMEOUT 25
+#define NB_RX_WAIT 2
+
 
 // error codes
 // Error code
@@ -112,7 +114,7 @@ public:
 protected:
     
     int             domeCommand(const char *pszCmd, char *pszResult, int nResultMaxLen);
-    int             readResponse(char *pszRespBuffer, int bufferLen);
+    int             readResponse(char *pszRespBuffer, int bufferLen, unsigned long &nbRead);
 
     int             getShutterState();
     int             getDomeParkAz(double &dAz);
