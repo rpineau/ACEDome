@@ -144,7 +144,7 @@ void CACEDome::Disconnect()
 }
 
 
-int CACEDome::readResponse(char *pszRespBuffer, int nBufferLen)
+int CACEDome::readResponse(char *pszRespBuffer, int nBufferLen, unsigned long &nbRead)
 {
     int nErr = ACE_OK;
     unsigned long ulBytesRead = 0;
@@ -165,21 +165,23 @@ int CACEDome::readResponse(char *pszRespBuffer, int nBufferLen)
         fprintf(Logfile, "[%s] [CACEDome::readResponse] nBytesWaiting = %d\n", timestamp, nBytesWaiting);
         fflush(Logfile);
 #endif
+        
         if(!nBytesWaiting) {
-            m_pSleeper->sleep(MAX_TIMEOUT);
             if(nbTimeouts++ >= NB_RX_WAIT) {
-#if defined ACE_DEBUG && ACE_DEBUG >= 2
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
                 ltime = time(NULL);
                 timestamp = asctime(localtime(&ltime));
                 timestamp[strlen(timestamp) - 1] = 0;
-                fprintf(Logfile, "[%s] [CACEDome::readResponse] bytesWaitingRx timeout, no data for %d loops\n", timestamp, NB_RX_WAIT);
+                fprintf(Logfile, "[%s] [CRTIDome::CACEDome] bytesWaitingRx timeout, no data for %d loops\n", timestamp, NB_RX_WAIT);
                 fflush(Logfile);
 #endif
                 nErr = ERR_RXTIMEOUT;
                 break;
             }
+            m_pSleeper->sleep(MAX_READ_WAIT_TIMEOUT);
             continue;
         }
+
         nbTimeouts = 0;
         if(ulTotalBytesRead + nBytesWaiting <= nBufferLen)
             nErr = m_pSerx->readFile(pszBufPtr, nBytesWaiting, ulBytesRead, MAX_TIMEOUT);
@@ -214,6 +216,7 @@ int CACEDome::readResponse(char *pszRespBuffer, int nBufferLen)
 
     if(!ulTotalBytesRead)
         nErr = BAD_CMD_RESPONSE;
+    nbRead = ulTotalBytesRead;
 
     return nErr;
 }
@@ -224,7 +227,8 @@ int CACEDome::domeCommand(const char *pszCmd, char *pszResult, int nResultMaxLen
     int nErr = ACE_OK;
     char szResp[SERIAL_BUFFER_SIZE];
     unsigned long  ulBytesWrite;
-
+    unsigned long nbRead;
+    
     m_pSerx->purgeTxRx();
 
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
@@ -242,7 +246,7 @@ int CACEDome::domeCommand(const char *pszCmd, char *pszResult, int nResultMaxLen
 
     if(pszResult) {
         // read response
-        nErr = readResponse(szResp, SERIAL_BUFFER_SIZE);
+        nErr = readResponse(szResp, SERIAL_BUFFER_SIZE, nbRead);
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
         ltime = time(NULL);
         timestamp = asctime(localtime(&ltime));
@@ -251,10 +255,11 @@ int CACEDome::domeCommand(const char *pszCmd, char *pszResult, int nResultMaxLen
         fflush(Logfile);
 #endif
 
-        if(nErr)
+        if(nErr != ERR_RXTIMEOUT)
             return nErr;
 
         strncpy(pszResult, szResp, nResultMaxLen);
+        nErr = ACE_OK;
     }
 
 
