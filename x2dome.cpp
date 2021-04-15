@@ -86,7 +86,7 @@ int X2Dome::establishLink(void)
     {
         m_ACEDome.setAutoShutdown( m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_AUTOSHUTDOWN, true) );
         m_ACEDome.setRainShutdown( m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_RAINSHUTDOWN, true) );
-        m_ACEDome.setDropoutDisabled( m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_DROPOUT, false) );
+        m_ACEDome.setDropoutDisabled( m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_DROPOUT, true) );
         m_ACEDome.setCloseOnPark( m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_CLOSE_ON_PARK, false) );
         m_ACEDome.setOpenOnUnpark( m_pIniUtil->readInt(PARENT_KEY, CHILD_KEY_OPEN_ON_UNPARK, false) );
     }

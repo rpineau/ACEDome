@@ -22,7 +22,7 @@
 
 // #define ACE_DEBUG 2
 
-#define DRIVER_VERSION      1.4
+#define DRIVER_VERSION      1.5
 
 #define SERIAL_BUFFER_SIZE 2048
 #define MAX_TIMEOUT 500
