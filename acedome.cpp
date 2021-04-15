@@ -30,7 +30,7 @@ CACEDome::CACEDome()
     m_bCalibrating = false;
 
     m_bShutterOpened = false;
-    m_bDropoutDisabled = false;
+    m_bDropoutDisabled = true;
 
     m_bParked = true;
     m_bCloseOnPark = false;
@@ -439,24 +439,27 @@ int CACEDome::getShutterState()
             else
                 m_nShutterStateD1 = OPENING_D1;
         }
-    }
+        if(m_nShutterStateD1 == OPEN)
+            m_bShutterOpened = true;    }
 
-    sLine = findField(m_svShortStatus, "D2 ");
-    if(!sLine.empty()) {
-        parseFields(sLine.c_str(), svFields, ' ');
-        if(svFields.size()>1) {
-            if(svFields[1]=="SHUT") {
-                m_nShutterStateD2 = CLOSED;
+    if(!m_bDropoutDisabled) {
+        sLine = findField(m_svShortStatus, "D2 ");
+        if(!sLine.empty()) {
+            parseFields(sLine.c_str(), svFields, ' ');
+            if(svFields.size()>1) {
+                if(svFields[1]=="SHUT") {
+                    m_nShutterStateD2 = CLOSED;
+                }
+                else if (svFields[1]=="OPEN") {
+                    m_nShutterStateD2 = OPEN;
+                }
+                else
+                    m_nShutterStateD2 = OPENING_D2;
             }
-            else if (svFields[1]=="OPEN") {
-                m_nShutterStateD2 = OPEN;
-            }
-            else
-                m_nShutterStateD2 = OPENING_D2;
         }
+        if(m_nShutterStateD1 == OPEN && m_nShutterStateD2 == OPEN)
+            m_bShutterOpened = true;
     }
-    if(m_nShutterStateD1 == OPEN && m_nShutterStateD2 == OPEN)
-        m_bShutterOpened = true;
     return nErr;
 }
 
@@ -930,20 +933,18 @@ int CACEDome::isOpenComplete(bool &bComplete)
     if(isRaining)
         return ERR_CMDFAILED;
 
+    if(!m_bDropoutDisabled) {
+        // which shutter are we opening ?
+        if(m_nCurrentShutterAction == OPENING_D1 && m_nShutterStateD1 == OPEN) {
+    #if defined ACE_DEBUG && ACE_DEBUG >= 2
+            ltime = time(NULL);
+            timestamp = asctime(localtime(&ltime));
+            timestamp[strlen(timestamp) - 1] = 0;
+            fprintf(Logfile, "[%s] [CACEDome::isOpenComplete] D1 is open\n", timestamp);
+            fprintf(Logfile, "[%s] [CACEDome::isOpenComplete] m_bDropoutDisabled = %s\n", timestamp, m_bDropoutDisabled?"TRUE":"FALSE");
+            fflush(Logfile);
+    #endif
 
-
-    // which shutter are we opening ?
-    if(m_nCurrentShutterAction == OPENING_D1 && m_nShutterStateD1 == OPEN) {
-#if defined ACE_DEBUG && ACE_DEBUG >= 2
-        ltime = time(NULL);
-        timestamp = asctime(localtime(&ltime));
-        timestamp[strlen(timestamp) - 1] = 0;
-        fprintf(Logfile, "[%s] [CACEDome::isOpenComplete] D1 is open\n", timestamp);
-        fprintf(Logfile, "[%s] [CACEDome::isOpenComplete] m_bDropoutDisabled = %s\n", timestamp, m_bDropoutDisabled?"TRUE":"FALSE");
-        fflush(Logfile);
-#endif
-
-        if(!m_bDropoutDisabled) {
             //now open bottom shutter
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
             ltime = time(NULL);
@@ -965,26 +966,41 @@ int CACEDome::isOpenComplete(bool &bComplete)
             }
             m_nCurrentShutterAction = OPENING_D2;
         }
-        else {
+        else if(m_nCurrentShutterAction == OPENING_D2 && m_nShutterStateD2 == OPEN) {
             m_nCurrentShutterAction = OPEN;
             m_bShutterOpened = true;
             bComplete = true;
             m_dCurrentElPosition = 90.0;
         }
-
-    }
-    else if(m_nCurrentShutterAction == OPENING_D2 && m_nShutterStateD2 == OPEN) {
-        m_nCurrentShutterAction = OPEN;
-        m_bShutterOpened = true;
-        bComplete = true;
-        m_dCurrentElPosition = 90.0;
+        else {
+            m_bShutterOpened = false;
+            bComplete = false;
+            m_dCurrentElPosition = 0.0;
+        }
     }
     else {
-        m_bShutterOpened = false;
-        bComplete = false;
-        m_dCurrentElPosition = 0.0;
+        if(m_nShutterStateD1 == OPEN) {
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+            ltime = time(NULL);
+            timestamp = asctime(localtime(&ltime));
+            timestamp[strlen(timestamp) - 1] = 0;
+            fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] D1 is CLOSED\n", timestamp);
+            fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] All shutter are closed\n", timestamp);
+            fflush(Logfile);
+#endif
+            m_nCurrentShutterAction = OPEN;
+            m_bShutterOpened = true;
+            bComplete = true;
+            m_dCurrentElPosition = 90.0;
+        }
+        else {
+            m_bShutterOpened = false;
+            bComplete = false;
+            m_dCurrentElPosition = 0.0;
+        }
     }
 
+    
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
@@ -1013,61 +1029,84 @@ int CACEDome::isCloseComplete(bool &bComplete)
 
     bComplete = false;
 
-#if defined ACE_DEBUG && ACE_DEBUG >= 2
-    ltime = time(NULL);
-    timestamp = asctime(localtime(&ltime));
-    timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] m_nCurrentShutterAction = %d\n", timestamp, m_nCurrentShutterAction);
-    fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] m_nShutterStateD1 = %d\n", timestamp, m_nShutterStateD1);
-    fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] m_nShutterStateD2 = %d\n", timestamp, m_nShutterStateD2);
-    fflush(Logfile);
-#endif
-
-    // which shutter are we closing ?
-    if(m_nCurrentShutterAction == CLOSING_D2 && m_nShutterStateD2 == CLOSED) {
-#if defined ACE_DEBUG && ACE_DEBUG >= 2
+    if(!m_bDropoutDisabled) {
+    #if defined ACE_DEBUG && ACE_DEBUG >= 2
         ltime = time(NULL);
         timestamp = asctime(localtime(&ltime));
         timestamp[strlen(timestamp) - 1] = 0;
-        fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] D2 is CLOSED\n", timestamp);
-        fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] CLosing D1\n", timestamp);
+        fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] m_nCurrentShutterAction = %d\n", timestamp, m_nCurrentShutterAction);
+        fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] m_nShutterStateD2 = %d\n", timestamp, m_nShutterStateD1);
+        fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] m_nShutterStateD2 = %d\n", timestamp, m_nShutterStateD2);
         fflush(Logfile);
-#endif
-        //now close main shutter
-        nErr = domeCommand("CL\r\n", NULL, SERIAL_BUFFER_SIZE);
-        if(nErr) {
+    #endif
+
+        // which shutter are we closing ?
+        if(m_nCurrentShutterAction == CLOSING_D2 && m_nShutterStateD2 == CLOSED) {
+    #if defined ACE_DEBUG && ACE_DEBUG >= 2
+            ltime = time(NULL);
+            timestamp = asctime(localtime(&ltime));
+            timestamp[strlen(timestamp) - 1] = 0;
+            fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] D2 is CLOSED\n", timestamp);
+            fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] CLosing D1\n", timestamp);
+            fflush(Logfile);
+    #endif
+            //now close main shutter
+            nErr = domeCommand("CL\r\n", NULL, SERIAL_BUFFER_SIZE);
+            if(nErr) {
+    #if defined ACE_DEBUG && ACE_DEBUG >= 2
+                ltime = time(NULL);
+                timestamp = asctime(localtime(&ltime));
+                timestamp[strlen(timestamp) - 1] = 0;
+                fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] ERROR CLosing D1 : %d\n", timestamp, nErr);
+                fflush(Logfile);
+    #endif
+                return nErr;
+            }
+            m_nCurrentShutterAction = CLOSING_D1;
+        }
+        else if(m_nCurrentShutterAction == CLOSING_D1 && m_nShutterStateD1 == CLOSED) {
+    #if defined ACE_DEBUG && ACE_DEBUG >= 2
+            ltime = time(NULL);
+            timestamp = asctime(localtime(&ltime));
+            timestamp[strlen(timestamp) - 1] = 0;
+            fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] D1 is CLOSED\n", timestamp);
+            fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] All shutter are closed\n", timestamp);
+            fflush(Logfile);
+    #endif
+            m_nCurrentShutterAction = CLOSED;
+
+            m_bShutterOpened = false;
+            bComplete = true;
+            m_dCurrentElPosition = 0.0;
+        }
+        else {
+            m_bShutterOpened = true;
+            bComplete = false;
+            m_dCurrentElPosition = 90.0;
+        }
+    }
+    else {
+        if(m_nShutterStateD1 == CLOSED) {
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
             ltime = time(NULL);
             timestamp = asctime(localtime(&ltime));
             timestamp[strlen(timestamp) - 1] = 0;
-            fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] ERROR CLosing D1 : %d\n", timestamp, nErr);
+            fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] D1 is CLOSED\n", timestamp);
+            fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] All shutter are closed\n", timestamp);
             fflush(Logfile);
 #endif
-            return nErr;
+            m_nCurrentShutterAction = CLOSED;
+            
+            m_bShutterOpened = false;
+            bComplete = true;
+            m_dCurrentElPosition = 0.0;
         }
-        m_nCurrentShutterAction = CLOSING_D1;
+        else {
+            m_bShutterOpened = true;
+            bComplete = false;
+            m_dCurrentElPosition = 90.0;
+        }
     }
-    else if(m_nCurrentShutterAction == CLOSING_D1 && m_nShutterStateD1 == CLOSED) {
-#if defined ACE_DEBUG && ACE_DEBUG >= 2
-        ltime = time(NULL);
-        timestamp = asctime(localtime(&ltime));
-        timestamp[strlen(timestamp) - 1] = 0;
-        fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] D1 is CLOSED\n", timestamp);
-        fprintf(Logfile, "[%s] [CACEDome::isCloseComplete] All shutter are closed\n", timestamp);
-        fflush(Logfile);
-#endif
-        m_nCurrentShutterAction = CLOSED;
-
-        m_bShutterOpened = false;
-        bComplete = true;
-        m_dCurrentElPosition = 0.0;
-    }
-    else {
-        m_bShutterOpened = true;
-        bComplete = false;
-        m_dCurrentElPosition = 90.0;
-    }
-
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
