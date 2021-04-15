@@ -35,9 +35,10 @@ CACEDome::CACEDome()
     m_bParked = true;
     m_bCloseOnPark = false;
     m_bHomed = false;
-    m_sFirmwareVersion.empty();
+    m_sFirmwareVersion.clear();
 
     m_nNbRainSensors = 0;
+    m_nCurrentShutterAction = UNKNOWN;
     
 #ifdef ACE_DEBUG
 #if defined(SB_WIN_BUILD)
@@ -158,7 +159,7 @@ int CACEDome::readResponse(char *pszRespBuffer, int nBufferLen, unsigned long &n
 
     do {
         m_pSerx->bytesWaitingRx(nBytesWaiting);
-#if defined ACE_DEBUG && ACE_DEBUG >= 2
+#if defined ACE_DEBUG && ACE_DEBUG >= 3
         ltime = time(NULL);
         timestamp = asctime(localtime(&ltime));
         timestamp[strlen(timestamp) - 1] = 0;
@@ -168,7 +169,7 @@ int CACEDome::readResponse(char *pszRespBuffer, int nBufferLen, unsigned long &n
         
         if(!nBytesWaiting) {
             if(nbTimeouts++ >= NB_RX_WAIT) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
                 ltime = time(NULL);
                 timestamp = asctime(localtime(&ltime));
                 timestamp[strlen(timestamp) - 1] = 0;
@@ -190,7 +191,7 @@ int CACEDome::readResponse(char *pszRespBuffer, int nBufferLen, unsigned long &n
             break; // buffer is full.. there is a problem !!
         }
         if(nErr) {
-#if defined ACE_DEBUG && ACE_DEBUG >= 2
+#if defined ACE_DEBUG && ACE_DEBUG >= 3
             ltime = time(NULL);
             timestamp = asctime(localtime(&ltime));
             timestamp[strlen(timestamp) - 1] = 0;
@@ -201,7 +202,7 @@ int CACEDome::readResponse(char *pszRespBuffer, int nBufferLen, unsigned long &n
         }
 
         if (ulBytesRead != nBytesWaiting) {// timeout
-#if defined ACE_DEBUG && ACE_DEBUG >= 2
+#if defined ACE_DEBUG && ACE_DEBUG >= 3
             ltime = time(NULL);
             timestamp = asctime(localtime(&ltime));
             timestamp[strlen(timestamp) - 1] = 0;
@@ -214,8 +215,14 @@ int CACEDome::readResponse(char *pszRespBuffer, int nBufferLen, unsigned long &n
         pszBufPtr+=ulBytesRead;
     } while ( strstr(pszRespBuffer,">\r") == NULL && strstr(pszRespBuffer,">\n") == NULL && ulTotalBytesRead < nBufferLen );
 
-    if(!ulTotalBytesRead)
-        nErr = BAD_CMD_RESPONSE;
+#if defined ACE_DEBUG && ACE_DEBUG >= 3
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CACEDome::readResponse] on Exit nErr = %d\n", timestamp, nErr);
+    fflush(Logfile);
+#endif
+
     nbRead = ulTotalBytesRead;
 
     return nErr;
@@ -255,7 +262,7 @@ int CACEDome::domeCommand(const char *pszCmd, char *pszResult, int nResultMaxLen
         fflush(Logfile);
 #endif
 
-        if(nErr != ERR_RXTIMEOUT)
+        if(nErr && nErr != ERR_RXTIMEOUT)
             return nErr;
 
         strncpy(pszResult, szResp, nResultMaxLen);
@@ -501,6 +508,8 @@ int CACEDome::setDomeStepPerRev(int nStepPerRev)
 
     snprintf(szBuf, SERIAL_BUFFER_SIZE, "%d LM\r\n", nStepPerRev);
     nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
+    if(nErr == ERR_RXTIMEOUT)
+        nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
     if(!nErr)
         m_nNbStepPerRev = nStepPerRev;
 
@@ -630,6 +639,8 @@ int CACEDome::syncDome(double dAz, double dEl)
 
     snprintf(szBuf, SERIAL_BUFFER_SIZE, "%3.2f RE\r\n", dAz);
     nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
+    if(nErr == ERR_RXTIMEOUT)
+        nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
     if(nErr)
         return nErr;
 
@@ -676,6 +687,8 @@ int CACEDome::gotoAzimuth(double dNewAz)
     dNewAz = fabs(dNewAz); // should solve the -0.00
     snprintf(szBuf, SERIAL_BUFFER_SIZE, "%3.2f MV\r\n", dNewAz);
     nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
+    if(nErr == ERR_RXTIMEOUT)
+        nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
     if(nErr)
         return nErr;
 
@@ -708,8 +721,11 @@ int CACEDome::openShutter()
         return ERR_CMDFAILED;
     }
     nErr = domeCommand("OP\r\n", NULL, SERIAL_BUFFER_SIZE);
-    if(nErr)
-        return nErr;
+    if(nErr == ERR_RXTIMEOUT) {
+        nErr = domeCommand("OP\r\n", NULL, SERIAL_BUFFER_SIZE);
+        if(nErr)
+            return nErr;
+    }
     m_nCurrentShutterAction = OPENING_D1;
 
     return nErr;
@@ -727,15 +743,16 @@ int CACEDome::closeShutter()
 
     if(!m_bDropoutDisabled) {
         nErr = domeCommand("UP\r\n", NULL, SERIAL_BUFFER_SIZE);
+        if(nErr == ERR_RXTIMEOUT)
+            nErr = domeCommand("UP\r\n", NULL, SERIAL_BUFFER_SIZE);
         m_nCurrentShutterAction = CLOSING_D2;
     }
     else {
         nErr = domeCommand("CL\r\n", NULL, SERIAL_BUFFER_SIZE);
+        if(nErr == ERR_RXTIMEOUT)
+            nErr = domeCommand("CL\r\n", NULL, SERIAL_BUFFER_SIZE);
         m_nCurrentShutterAction = CLOSING_D1;
     }
-
-    if(nErr)
-        return nErr;
 
     return nErr;
 }
@@ -752,11 +769,12 @@ int CACEDome::getFirmwareVersion(std::string& sVersion)
 
     if(m_bCalibrating)
         return SB_OK;
+    
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] [CACEDome::getFirmwareVersion] (strlen(m_szFirmwareVersion) : %d \n", timestamp, (int)sVersion.size());
+    fprintf(Logfile, "[%s] [CACEDome::getFirmwareVersion] sVersion.size() : %d \n", timestamp, (int)sVersion.size());
     fflush(Logfile);
 #endif
 
@@ -766,14 +784,24 @@ int CACEDome::getFirmwareVersion(std::string& sVersion)
     }
 
     nErr = domeCommand("HELP\r\n", szResp, SERIAL_BUFFER_SIZE);
-    if(nErr)
+    if(nErr == ERR_RXTIMEOUT)
+        nErr = domeCommand("HELP\r\n", szResp, SERIAL_BUFFER_SIZE);
+    if(nErr) {
+#if defined ACE_DEBUG && ACE_DEBUG >= 2
+        ltime = time(NULL);
+        timestamp = asctime(localtime(&ltime));
+        timestamp[strlen(timestamp) - 1] = 0;
+        fprintf(Logfile, "[%s] [CACEDome::getFirmwareVersion] nErr : %d \n", timestamp, nErr);
+        fflush(Logfile);
+#endif
         return nErr;
-
-
+    }
+    
     nErr = parseFields(szResp, svHelpOutput, '\n');
-    if(nErr)
+    if(nErr) {
         return nErr;
-
+    }
+    
     sFirmware = findField(svHelpOutput, "Revision");
 
     if(sFirmware.size()) {
@@ -794,6 +822,8 @@ int CACEDome::goHome()
         return SB_OK;
     m_bHomePassed = false;
     nErr = domeCommand("HM\r\n", NULL, SERIAL_BUFFER_SIZE);
+    if(nErr == ERR_RXTIMEOUT)
+        nErr = domeCommand("HM\r\n", NULL, SERIAL_BUFFER_SIZE);
 
     return nErr;
 }
@@ -809,6 +839,8 @@ int CACEDome::calibrate()
         return SB_OK;
 
     nErr = domeCommand("LR\r\n", NULL, SERIAL_BUFFER_SIZE);
+    if(nErr == ERR_RXTIMEOUT)
+        nErr = domeCommand("LR\r\n", NULL, SERIAL_BUFFER_SIZE);
     if(nErr)
         return nErr;
 
@@ -908,7 +940,7 @@ int CACEDome::isOpenComplete(bool &bComplete)
         return NOT_CONNECTED;
 
     nErr = getShutterState();
-    if(nErr == BAD_CMD_RESPONSE) {
+    if(nErr == ERR_RXTIMEOUT) {
         // if we got a timeout we need to ignore it on this call.
         return ACE_OK;
     }
@@ -954,6 +986,8 @@ int CACEDome::isOpenComplete(bool &bComplete)
             fflush(Logfile);
 #endif
             nErr = domeCommand("DN\r\n", NULL, SERIAL_BUFFER_SIZE);
+            if(nErr == ERR_RXTIMEOUT)
+                nErr = domeCommand("DN\r\n", NULL, SERIAL_BUFFER_SIZE);
             if(nErr) {
 #if defined ACE_DEBUG && ACE_DEBUG >= 2
                 ltime = time(NULL);
@@ -1020,7 +1054,7 @@ int CACEDome::isCloseComplete(bool &bComplete)
         return NOT_CONNECTED;
 
     nErr = getShutterState();
-    if(nErr == BAD_CMD_RESPONSE) {
+    if(nErr == ERR_RXTIMEOUT) {
         // if we got a timeout we need to ignore it on this call.
         return ACE_OK;
     }
@@ -1052,6 +1086,8 @@ int CACEDome::isCloseComplete(bool &bComplete)
     #endif
             //now close main shutter
             nErr = domeCommand("CL\r\n", NULL, SERIAL_BUFFER_SIZE);
+            if(nErr == ERR_RXTIMEOUT)
+                nErr = domeCommand("CL\r\n", NULL, SERIAL_BUFFER_SIZE);
             if(nErr) {
     #if defined ACE_DEBUG && ACE_DEBUG >= 2
                 ltime = time(NULL);
@@ -1313,6 +1349,7 @@ int CACEDome::isCalibratingComplete(bool &bComplete)
 
 int CACEDome::abortCurrentCommand()
 {
+    int nErr = ACE_OK;
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
@@ -1320,7 +1357,11 @@ int CACEDome::abortCurrentCommand()
     if(m_nCurrentShutterAction != OPEN || m_nCurrentShutterAction != CLOSED)
         m_nCurrentShutterAction = SHUTTER_ERROR;
 
-    return (domeCommand("ST\r\n", NULL, SERIAL_BUFFER_SIZE));
+    nErr = domeCommand("ST\r\n", NULL, SERIAL_BUFFER_SIZE);
+    if(nErr == ERR_RXTIMEOUT)
+        nErr = domeCommand("ST\r\n", NULL, SERIAL_BUFFER_SIZE);
+
+    return (nErr);
 }
 
 #pragma mark - Getter / Setter
@@ -1364,6 +1405,8 @@ int CACEDome::setWatchdogResetTimer(int nSeconds)
 
     snprintf(szBuf, SERIAL_BUFFER_SIZE, "%d WT\r\n", nSeconds);
     nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
+    if(nErr == ERR_RXTIMEOUT)
+        nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
 
     return nErr;
 }
@@ -1379,6 +1422,8 @@ int CACEDome::setHomeAz(double dAz)
 
     snprintf(szBuf, SERIAL_BUFFER_SIZE, "%d HZ\r\n", int(dAz));
     nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
+    if(nErr == ERR_RXTIMEOUT)
+        nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
     if(nErr)
         return nErr;
 
@@ -1422,10 +1467,16 @@ int CACEDome::setAutoShutdown(bool bEnabled)
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
-    if(bEnabled)
+    if(bEnabled) {
         nErr = domeCommand("ON\r\n", NULL, SERIAL_BUFFER_SIZE);
-    else
+        if(nErr == ERR_RXTIMEOUT)
+            nErr = domeCommand("ON\r\n", NULL, SERIAL_BUFFER_SIZE);
+    }
+    else{
         nErr = domeCommand("OF\r\n", NULL, SERIAL_BUFFER_SIZE);
+        if(nErr == ERR_RXTIMEOUT)
+            nErr = domeCommand("OF\r\n", NULL, SERIAL_BUFFER_SIZE);
+    }
     if(nErr)
         return nErr;
 
@@ -1469,10 +1520,16 @@ int CACEDome::setRainShutdown(bool bEnabled)
     if(!m_bIsConnected)
         return NOT_CONNECTED;
 
-    if(bEnabled)
+    if(bEnabled) {
         nErr = domeCommand("RN\r\n", NULL, SERIAL_BUFFER_SIZE);
-    else
+        if(nErr == ERR_RXTIMEOUT)
+            nErr = domeCommand("RN\r\n", NULL, SERIAL_BUFFER_SIZE);
+    }
+    else {
         nErr = domeCommand("RF\r\n", NULL, SERIAL_BUFFER_SIZE);
+        if(nErr == ERR_RXTIMEOUT)
+            nErr = domeCommand("RF\r\n", NULL, SERIAL_BUFFER_SIZE);
+    }
     if(nErr)
         return nErr;
 
@@ -1490,6 +1547,8 @@ int CACEDome::setNbRainSensors(int nNbSensors)
 
     snprintf(szBuf, SERIAL_BUFFER_SIZE, "%d RS\r\n", nNbSensors);
     nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
+    if(nErr == ERR_RXTIMEOUT)
+        nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
     if(!nErr)
         m_nNbRainSensors = nNbSensors;
 
@@ -1589,6 +1648,7 @@ void CACEDome::setDropoutDisabled(bool bDisabled)
 
 void CACEDome::setDecimalFormat(int nNbDecimals)
 {
+    int nErr = ACE_OK;
     char szBuf[SERIAL_BUFFER_SIZE];
 
     if(nNbDecimals>2)
@@ -1598,7 +1658,9 @@ void CACEDome::setDecimalFormat(int nNbDecimals)
         return;
 
     snprintf(szBuf, SERIAL_BUFFER_SIZE, "%d DP\r\n", nNbDecimals);
-    domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
+    nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
+    if(nErr == ERR_RXTIMEOUT)
+        nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
 }
 
 int CACEDome::getDomeAzCoast(double &dAz)
@@ -1634,6 +1696,8 @@ int CACEDome::setDomeAzCoast(double dAz)
 
     snprintf(szBuf, SERIAL_BUFFER_SIZE, "%d CS\r\n", int(dAz));
     nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
+    if(nErr == ERR_RXTIMEOUT)
+        nErr = domeCommand(szBuf, NULL, SERIAL_BUFFER_SIZE);
     if(nErr)
         return nErr;
 
@@ -1672,6 +1736,9 @@ int CACEDome::getShortStatus()
         return NOT_CONNECTED;
 
     nErr = domeCommand("?\r\n", szResp, SERIAL_BUFFER_SIZE);
+    if(nErr == ERR_RXTIMEOUT)
+        nErr = domeCommand("?\r\n", szResp, SERIAL_BUFFER_SIZE);
+
     if(nErr)
         return nErr;
     // szResp contains the state fields.
@@ -1688,6 +1755,9 @@ int CACEDome::getExtendedStatus()
         return NOT_CONNECTED;
 
     nErr = domeCommand("+\r\n", szResp, SERIAL_BUFFER_SIZE);
+    if(nErr == ERR_RXTIMEOUT)
+        nErr = domeCommand("+\r\n", szResp, SERIAL_BUFFER_SIZE);
+
     if(nErr)
         return nErr;
     // szResp contains the state fields.
@@ -1704,8 +1774,7 @@ int CACEDome::parseFields(const char *pszResp, std::vector<std::string> &svField
 
     svFields.clear();
     // split the string into vector elements
-    while(std::getline(ssTmp, sSegment, cSeparator))
-    {
+    while(std::getline(ssTmp, sSegment, cSeparator)) {
         svFields.push_back(trim(sSegment," \r\n"));
     }
 
