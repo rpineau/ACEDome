@@ -122,6 +122,7 @@ protected:
 
     int             getExtendedStatus();
     int             getShortStatus();
+    bool            checkBoundaries(double dTargetAz, double dDomeAz, double nMargin=2.0);
 
     int             parseFields(const char *pszResp, std::vector<std::string> &svFields, char cSeparator);
     std::string&    trim(std::string &str, const std::string &filter );
