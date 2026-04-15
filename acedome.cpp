@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <memory.h>
-#ifdef SB_MAC_BUILD
+#ifndef WIN32
 #include <unistd.h>
 #endif
 
